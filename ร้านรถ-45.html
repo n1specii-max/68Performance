@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="68 Performance">
+<title>68 Performance</title>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { background: #0f0f1e; font-family: 'Sarabun', sans-serif; color: #fff; }
+  input, select, button { font-family: 'Sarabun', sans-serif; outline: none; }
+  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+  ::-webkit-scrollbar { width: 0; }
+  .slide-up { animation: slideUp 0.25s ease; }
+  @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .fade-in { animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback } = React;
+
+const STORAGE_KEY = "bike-shop-v1";
+
+function genId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2,6);
+}
+function formatDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleDateString("th-TH", { day:"2-digit", month:"2-digit", year:"2-digit" });
+}
+function formatMoney(n) {
+  return Number(n||0).toLocaleString("th-TH");
+}
+function todayISO() {
+  return new Date().toISOString().slice(0,10);
+}
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(!raw) return { customers:[], jobs:[], expenses:[], otherIncome:[] };
+    const d = JSON.parse(raw);
+    if(!d.expenses) d.expenses = [];
+    if(!d.otherIncome) d.otherIncome = [];
+    if(!d.customers) d.customers = [];
+    if(!d.jobs) d.jobs = [];
+    // migrate: assign jobNo to old jobs that don't have one (safe version)
+    try {
+      const hasNoNum = d.jobs.some(j=>!j.jobNo);
+      if(hasNoNum) {
+        const sorted = [...d.jobs]
+          .filter(j=>j.date)
+          .sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+        let counter = 1;
+        const mapped = {};
+        sorted.forEach(j=>{ if(!j.jobNo) mapped[j.id] = counter++; });
+        d.jobs = d.jobs.map(j => j.jobNo ? j : { ...j, jobNo: mapped[j.id]||counter++ });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+      }
+    } catch(migErr) { console.warn("migration skip:", migErr); }
+    return d;
+  }
+  catch(e) {
+    console.error("loadData error:", e);
+    return { customers:[], jobs:[], expenses:[], otherIncome:[] };
+  }
+}
+function saveData(d) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(d));
+}
+
+// ── SVG Icons ──
+const icons = {
+  add:    `<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>`,
+  back:   `<polyline points="15 18 9 12 15 6"/>`,
+  edit:   `<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>`,
+  trash:  `<polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>`,
+  close:  `<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>`,
+  plus:   `<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>`,
+  wrench: `<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>`,
+  money:  `<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>`,
+  person: `<circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>`,
+  search: `<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>`,
+  chart:  `<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>`,
+};
+
+function Ic({ n, size=18, color="currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+      dangerouslySetInnerHTML={{ __html: icons[n] }} />
+  );
+}
+
+// ── Badge ──
+function Badge({ status }) {
+  const map = {
+    open:       { label:"รับงาน",    bg:"#1e3a5f", color:"#60a5fa" },
+    inprogress: { label:"ซ่อมอยู่",  bg:"#3a2d10", color:"#fbbf24" },
+    done:       { label:"เสร็จแล้ว", bg:"#1a3324", color:"34d399" },
+  };
+  const s = map[status] || map.open;
+  return (
+    <span style={{ background:s.bg, color:s.color, fontSize:11, fontWeight:700,
+      padding:"2px 9px", borderRadius:20, whiteSpace:"nowrap" }}>
+      {s.label}
+    </span>
+  );
+}
+
+// ── Modal ──
+function Modal({ title, onClose, children }) {
+  return (
+    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.75)", zIndex:200,
+      display:"flex", alignItems:"flex-end" }} onClick={e => e.target===e.currentTarget && onClose()}>
+      <div className="slide-up" style={{ background:"#13132a", width:"100%", maxHeight:"92vh",
+        overflowY:"auto", borderRadius:"22px 22px 0 0" }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between",
+          padding:"18px 20px 14px", borderBottom:"1px solid #222240", position:"sticky", top:0,
+          background:"#13132a", zIndex:1 }}>
+          <span style={{ fontWeight:800, fontSize:17 }}>{title}</span>
+          <button onClick={onClose} style={{ background:"none", border:"none", color:"#888", cursor:"pointer", padding:4 }}>
+            <Ic n="close" size={22} />
+          </button>
+        </div>
+        <div style={{ padding:"18px 20px 32px" }}>{children}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Field ──
+function Field({ label, children }) {
+  return (
+    <div style={{ marginBottom:14 }}>
+      <label style={{ fontSize:11, color:"#666", fontWeight:700, display:"block",
+        marginBottom:6, letterSpacing:0.5, textTransform:"uppercase" }}>{label}</label>
+      {children}
+    </div>
+  );
+}
+const inputStyle = {
+  width:"100%", background:"#0d0d1c", border:"1px solid #252540",
+  borderRadius:10, color:"#fff", padding:"11px 13px", fontSize:15,
+};
+function Inp({ label, ...p }) {
+  return <Field label={label}><input style={inputStyle} {...p} /></Field>;
+}
+function Sel({ label, children, ...p }) {
+  return <Field label={label}>
+    <select style={{ ...inputStyle, appearance:"none" }} {...p}>{children}</select>
+  </Field>;
+}
+
+// ── Customer Form ──
+function CustomerForm({ init={}, onSave }) {
+  const [f, setF] = useState({ name:"",phone:"",plate:"",brand:"",model:"",year:"",receiveDate:todayISO(),finishDate:"",bikePhoto:"", ...init });
+  const s = k => e => setF(p => ({ ...p, [k]:e.target.value }));
+
+  const handlePhoto = e => {
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setF(p=>({...p, bikePhoto: ev.target.result}));
+    reader.readAsDataURL(file);
+  };
+
+  return (
+    <div>
+      <Inp label="ชื่อลูกค้า *" value={f.name} onChange={s("name")} placeholder="เช่น Max" />
+      <Inp label="เบอร์โทร" value={f.phone} onChange={s("phone")} placeholder="0616178979" type="tel" />
+      <Inp label="ทะเบียน" value={f.plate} onChange={s("plate")} placeholder="1กผ5194 ลำปาง" />
+      <div style={{ display:"flex", gap:10 }}>
+        <div style={{ flex:1 }}><Inp label="ยี่ห้อ *" value={f.brand} onChange={s("brand")} placeholder="Honda" /></div>
+        <div style={{ flex:1 }}><Inp label="รุ่นรถ *" value={f.model} onChange={s("model")} placeholder="Forza350" /></div>
+      </div>
+      <div style={{ display:"flex", gap:10 }}>
+        <div style={{ flex:1 }}><Inp label="ปี" value={f.year} onChange={s("year")} placeholder="2024" type="number" /></div>
+        <div style={{ flex:1 }}><Inp label="สีรถ" value={f.color||""} onChange={s("color")} placeholder="เช่น สีแดง" /></div>
+      </div>
+      <div style={{ display:"flex", gap:10 }}>
+        <div style={{ flex:1 }}><Inp label="วันที่รับรถ" value={f.receiveDate} onChange={s("receiveDate")} type="date" /></div>
+        <div style={{ flex:1 }}><Inp label="วันที่เสร็จ" value={f.finishDate} onChange={s("finishDate")} type="date" /></div>
+      </div>
+
+      <Field label="รูปรถ">
+        <label style={{ display:"block", cursor:"pointer" }}>
+          {f.bikePhoto
+            ? <div style={{ position:"relative" }}>
+                <img src={f.bikePhoto} style={{ width:"100%", borderRadius:12, maxHeight:200, objectFit:"cover", display:"block" }}/>
+                <div style={{ position:"absolute", bottom:8, right:8, background:"rgba(0,0,0,0.6)",
+                  borderRadius:8, padding:"4px 10px", fontSize:12, color:"#fff" }}>แตะเพื่อเปลี่ยนรูป</div>
+              </div>
+            : <div style={{ border:"2px dashed #252540", borderRadius:12, padding:"28px",
+                textAlign:"center", color:"#555", fontSize:14 }}>
+                📷 แตะเพื่อเลือกรูปรถ
+              </div>
+          }
+          <input type="file" accept="image/*" onChange={handlePhoto} style={{ display:"none" }}/>
+        </label>
+        {f.bikePhoto &&
+          <button onClick={()=>setF(p=>({...p,bikePhoto:""}))}
+            style={{ width:"100%", background:"none", border:"1px solid #ef4444", borderRadius:8,
+              color:"#ef4444", padding:"6px", fontSize:12, cursor:"pointer", marginTop:6 }}>
+            ลบรูป
+          </button>
+        }
+      </Field>
+
+      <button onClick={() => { if(f.name&&f.brand&&f.model) onSave(f); }}
+        style={{ width:"100%", background:"#f97316", color:"#fff", border:"none", borderRadius:13,
+          padding:"13px", fontSize:16, fontWeight:800, cursor:"pointer", marginTop:6 }}>
+        บันทึก
+      </button>
+    </div>
+  );
+}
+
+// ── Job Form ──
+function JobForm({ customerId, customerLabel, init={}, onSave }) {
+  const [f, setF] = useState({
+    date: todayISO(), status:"open", note:"",
+    items:[{ id:genId(), type:"service", desc:"", price:"" }],
+    ...init,
+    items: init.items ? init.items : [{ id:genId(), type:"service", desc:"", price:"" }],
+  });
+  const s = k => e => setF(p => ({ ...p, [k]:e.target.value }));
+  const si = (id,k) => e => setF(p => ({ ...p, items:p.items.map(i => i.id===id?{...i,[k]:e.target.value}:i) }));
+  const addItem = () => setF(p => ({ ...p, items:[...p.items,{ id:genId(),type:"service",desc:"",price:"" }] }));
+  const rmItem = id => setF(p => ({ ...p, items:p.items.filter(i=>i.id!==id) }));
+  const total = f.items.reduce((s,i) => s+(parseFloat(i.price)||0), 0);
+
+  const dragItem = React.useRef(null);
+  const dragOver = React.useRef(null);
+  const [dragIdx, setDragIdx] = useState(null);
+  const [overIdx, setOverIdx] = useState(null);
+
+  const onDragStart = (idx) => { dragItem.current=idx; setDragIdx(idx); };
+  const onDragEnter = (idx) => { dragOver.current=idx; setOverIdx(idx); };
+  const onDragEnd = () => {
+    const from=dragItem.current, to=dragOver.current;
+    if(from!==null && to!==null && from!==to) {
+      const items=[...f.items];
+      const [dragged]=items.splice(from,1);
+      items.splice(to,0,dragged);
+      setF(p=>({...p,items}));
+    }
+    dragItem.current=null; dragOver.current=null;
+    setDragIdx(null); setOverIdx(null);
+  };
+
+  const touchStartY = React.useRef(0);
+  const onTouchStart = (idx,e) => {
+    dragItem.current=idx; setDragIdx(idx);
+    touchStartY.current=e.touches[0].clientY;
+  };
+  const onTouchMove = (e) => {
+    e.preventDefault();
+    const y=e.touches[0].clientY;
+    const cards=document.querySelectorAll(".job-item-card");
+    cards.forEach((card,i)=>{
+      const rect=card.getBoundingClientRect();
+      if(y>=rect.top && y<=rect.bottom){ dragOver.current=i; setOverIdx(i); }
+    });
+  };
+  const onTouchEnd = () => {
+    onDragEnd();
+  };
+
+  return (
+    <div>
+      <div style={{ background:"#0d0d1c", borderRadius:10, padding:"10px 13px",
+        marginBottom:14, color:"#60a5fa", fontSize:13, fontWeight:600 }}>
+        🏍️ {customerLabel}
+      </div>
+      <div style={{ display:"flex", gap:10 }}>
+        <div style={{ flex:1 }}><Inp label="วันที่" type="date" value={f.date} onChange={s("date")} /></div>
+        <div style={{ flex:1 }}>
+          <Sel label="สถานะ" value={f.status} onChange={s("status")}>
+            <option value="open">รับงาน</option>
+            <option value="inprogress">ซ่อมอยู่</option>
+            <option value="done">เสร็จแล้ว</option>
+          </Sel>
+        </div>
+      </div>
+
+      <Field label="รายการงาน / อะไหล่  (กดค้างที่ ☰ เพื่อลากเรียง)">
+        {f.items.map((item,idx) => (
+          <div key={item.id} className="job-item-card"
+            draggable
+            onDragStart={()=>onDragStart(idx)}
+            onDragEnter={()=>onDragEnter(idx)}
+            onDragEnd={onDragEnd}
+            onDragOver={e=>e.preventDefault()}
+            style={{ background:"#0d0d1c",
+              border: overIdx===idx && dragIdx!==idx ? "1px solid #f97316" : "1px solid #252540",
+              borderRadius:12, padding:"12px", marginBottom:8,
+              opacity: dragIdx===idx ? 0.4 : 1,
+              transform: overIdx===idx && dragIdx!==idx ? "scale(1.02)" : "scale(1)",
+              transition:"transform 0.1s, opacity 0.1s, border 0.1s" }}>
+            <div style={{ display:"flex", gap:8, marginBottom:10, alignItems:"center" }}>
+              {/* drag handle */}
+              <div
+                onTouchStart={e=>onTouchStart(idx,e)}
+                onTouchMove={onTouchMove}
+                onTouchEnd={onTouchEnd}
+                style={{ color:"#444", cursor:"grab", padding:"0 4px", fontSize:16, touchAction:"none", userSelect:"none" }}>
+                ☰
+              </div>
+              <select value={item.type} onChange={si(item.id,"type")}
+                style={{ background:"#13132a", border:"1px solid #252540", borderRadius:8,
+                  color: item.type==="part"?"#fbbf24":"#34d399",
+                  padding:"5px 10px", fontSize:12, fontWeight:800 }}>
+                <option value="service">ค่าแรง</option>
+                <option value="part">อะไหล่</option>
+              </select>
+              {f.items.length > 1 &&
+                <button onClick={() => rmItem(item.id)}
+                  style={{ marginLeft:"auto", background:"none", border:"none", color:"#ef4444", cursor:"pointer", padding:4 }}>
+                  <Ic n="trash" size={16} />
+                </button>
+              }
+            </div>
+            <input value={item.desc} onChange={si(item.id,"desc")}
+              placeholder="รายละเอียด เช่น เปลี่ยนยาง / ค่าแรงล้างหัวฉีด"
+              style={{ width:"100%", background:"transparent", border:"none",
+                borderBottom:"1px solid #252540", color:"#ddd", padding:"5px 0",
+                fontSize:14, marginBottom:10 }} />
+            <input value={item.price} onChange={si(item.id,"price")} placeholder="ราคา (บาท)" type="number"
+              style={{ width:"100%", background:"transparent", border:"none",
+                borderBottom:"1px solid #252540", color:"#f97316",
+                padding:"5px 0", fontSize:16, fontWeight:800 }} />
+          </div>
+        ))}
+        <button onClick={addItem}
+          style={{ width:"100%", background:"transparent", border:"1px dashed #252540",
+            borderRadius:10, color:"#60a5fa", padding:"10px", fontSize:13,
+            cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:6 }}>
+          <Ic n="plus" size={16} /> เพิ่มรายการ
+        </button>
+      </Field>
+
+      <Inp label="หมายเหตุ" value={f.note} onChange={s("note")} placeholder="อาการรถ / หมายเหตุเพิ่มเติม" />
+
+      <div style={{ background:"#0d0d1c", borderRadius:12, padding:"13px 16px",
+        marginBottom:16, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+        <span style={{ color:"#888", fontSize:14 }}>ยอดรวม</span>
+        <span style={{ color:"#f97316", fontSize:22, fontWeight:800 }}>฿{formatMoney(total)}</span>
+      </div>
+
+      <button onClick={() => onSave({ ...f, customerId, total })}
+        style={{ width:"100%", background:"#f97316", color:"#fff", border:"none",
+          borderRadius:13, padding:"13px", fontSize:16, fontWeight:800, cursor:"pointer" }}>
+        บันทึกใบงาน
+      </button>
+    </div>
+  );
+}
+
+// ── Job Card ──
+function JobCard({ job, onEdit, onDelete, onStatus }) {
+  return (
+    <div style={{ background:"#1a1a2e", borderRadius:14, padding:"14px 16px", marginBottom:10, border:"1px solid #222240" }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+          {job.jobNo && (
+            <span style={{ background:"#f97316", color:"#fff", fontSize:11, fontWeight:800,
+              padding:"2px 8px", borderRadius:8, letterSpacing:0.5 }}>
+              #{String(job.jobNo).padStart(4,"0")}
+            </span>
+          )}
+          <span style={{ color:"#888", fontSize:13 }}>{formatDate(job.date)}</span>
+        </div>
+        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
+          <Badge status={job.status} />
+          <button onClick={() => onEdit(job)} style={{ background:"none",border:"none",color:"#60a5fa",cursor:"pointer",padding:4 }}>
+            <Ic n="edit" size={16} /></button>
+          <button onClick={() => { if(confirm("ลบใบงานนี้?")) onDelete(job.id); }}
+            style={{ background:"none",border:"none",color:"#ef4444",cursor:"pointer",padding:4 }}>
+            <Ic n="trash" size={16} /></button>
+        </div>
+      </div>
+
+      {job.items?.map(item => (
+        <div key={item.id} style={{ display:"flex", justifyContent:"space-between",
+          padding:"6px 0", borderBottom:"1px solid #1e1e38" }}>
+          <div>
+            <span style={{ fontSize:11, fontWeight:800,
+              color:item.type==="part"?"#fbbf24":"#34d399", marginRight:6 }}>
+              {item.type==="part"?"อะไหล่":"ค่าแรง"}
+            </span>
+            <span style={{ fontSize:13, color:"#ccc" }}>{item.desc}</span>
+          </div>
+          <span style={{ fontSize:13, fontWeight:700, color:"#f97316", whiteSpace:"nowrap", marginLeft:8 }}>
+            ฿{formatMoney(item.price)}
+          </span>
+        </div>
+      ))}
+
+      {job.note && (
+        <div style={{ marginTop:8, fontSize:12, color:"#666", fontStyle:"italic" }}>📝 {job.note}</div>
+      )}
+
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+        marginTop:10, paddingTop:10, borderTop:"1px solid #222240" }}>
+        <span style={{ color:"#aaa", fontSize:14 }}>ยอดรวม</span>
+        <span style={{ color:"#f97316", fontSize:20, fontWeight:800 }}>฿{formatMoney(job.total)}</span>
+      </div>
+
+      {job.status !== "done" && (
+        <button onClick={() => onStatus(job.id, job.status==="open"?"inprogress":"done")}
+          style={{ width:"100%", marginTop:10, background:job.status==="open"?"#1e3a5f":"#1a3324",
+            color:job.status==="open"?"#60a5fa":"#34d399", border:"none", borderRadius:10,
+            padding:"10px", fontSize:14, fontWeight:700, cursor:"pointer" }}>
+          {job.status==="open" ? "→ เริ่มซ่อม" : "✓ งานเสร็จแล้ว"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+const EXP_CATS = [
+  "LiquiMoly","อัลฟ่าสแปร์พาท","Boat โซ่สเตอร์","WURTH",
+  "ยาง CST","TD แบตเตอรี่","Shopee","ส.อะไหล่",
+  "Triumph เชียงราย","Honda Bigwing พิษณุโลก","วิริชัย สระบุรี",
+  "เครื่องมือ","อื่นๆ"
+];
+
+// ── Expense Form ──
+function ExpenseForm({ init={}, onSave }) {
+  const [f, setF] = useState({ date:todayISO(), desc:"", amount:"", cat:"LiquiMoly", ...init });
+  const s = k => e => setF(p=>({...p,[k]:e.target.value}));
+  return (
+    <div>
+      <div style={{ display:"flex", gap:10 }}>
+        <div style={{ flex:1 }}><Inp label="วันที่" type="date" value={f.date} onChange={s("date")} /></div>
+      </div>
+      <Sel label="แหล่งที่ซื้อ / หมวดหมู่" value={f.cat} onChange={s("cat")}>
+        {EXP_CATS.map(c=><option key={c}>{c}</option>)}
+      </Sel>
+      <Inp label="รายละเอียด *" value={f.desc} onChange={s("desc")} placeholder="เช่น น้ำมันเครื่อง 10W-40 จำนวน 6 กระป๋อง" />
+      <Inp label="จำนวนเงิน (บาท) *" value={f.amount} onChange={s("amount")} type="number" placeholder="0" />
+      <button onClick={()=>{ if(f.desc&&f.amount) onSave(f); }}
+        style={{ width:"100%", background:"#ef4444", color:"#fff", border:"none", borderRadius:13,
+          padding:"13px", fontSize:16, fontWeight:800, cursor:"pointer", marginTop:6 }}>
+        บันทึกรายจ่าย
+      </button>
+    </div>
+  );
+}
+
+// ── Other Income Form ──
+function OtherIncomeForm({ init={}, onSave }) {
+  const [f, setF] = useState({ date:todayISO(), desc:"", amount:"", cat:"รายรับอื่นๆ", ...init });
+  const s = k => e => setF(p=>({...p,[k]:e.target.value}));
+  return (
+    <div>
+      <Inp label="วันที่" type="date" value={f.date} onChange={s("date")} />
+      <Sel label="ประเภท" value={f.cat} onChange={s("cat")}>
+        <option>ขายอะไหล่</option>
+        <option>ขายรถ</option>
+        <option>ขายน้ำมันเครื่องเก่า</option>
+        <option>ค่าคอมมิชชั่น</option>
+        <option>รายรับอื่นๆ</option>
+      </Sel>
+      <Inp label="รายละเอียด *" value={f.desc} onChange={s("desc")} placeholder="เช่น ขายหมวกกันน็อก" />
+      <Inp label="จำนวนเงิน (บาท) *" value={f.amount} onChange={s("amount")} type="number" placeholder="0" />
+      <button onClick={()=>{ if(f.desc&&f.amount) onSave(f); }}
+        style={{ width:"100%", background:"#34d399", color:"#0f0f1e", border:"none", borderRadius:13,
+          padding:"13px", fontSize:16, fontWeight:800, cursor:"pointer", marginTop:6 }}>
+        บันทึกรายรับ
+      </button>
+    </div>
+  );
+}
+
+// ── Summary ──
+function Summary({ jobs, expenses, otherIncome, onAddExpense, onDelExpense, onAddIncome, onDelIncome }) {
+  const now = new Date();
+  const thisMonthStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+
+  const mj = jobs.filter(j => j.date?.slice(0,7)===thisMonthStr);
+  const jobIncomeMonth = mj.filter(j=>j.status==="done").reduce((s,j)=>s+(j.total||0),0);
+  const pending = jobs.filter(j=>j.status!=="done").reduce((s,j)=>s+(j.total||0),0);
+  const jobIncomeAll = jobs.filter(j=>j.status==="done").reduce((s,j)=>s+(j.total||0),0);
+
+  const otherMonth = (otherIncome||[]).filter(o=>o.date?.slice(0,7)===thisMonthStr).reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
+  const otherAll = (otherIncome||[]).reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
+
+  const incomeMonth = jobIncomeMonth + otherMonth;
+  const incomeAll = jobIncomeAll + otherAll;
+
+  const me = expenses.filter(e=>e.date?.slice(0,7)===thisMonthStr);
+  const expenseMonth = me.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+  const expenseAll = expenses.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+
+  const profitMonth = incomeMonth - expenseMonth;
+  const profitAll = incomeAll - expenseAll;
+
+  const recentExp = [...expenses].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
+  const recentInc = [...(otherIncome||[])].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10);
+
+  return (
+    <div>
+      <div style={{ fontWeight:700, fontSize:11, color:"#555", marginBottom:8, letterSpacing:0.5, textTransform:"uppercase" }}>เดือนนี้</div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:12 }}>
+        {[
+          { label:"รายรับรวม (จากลูกค้า+อื่นๆ)", value:"฿"+formatMoney(incomeMonth), color:"#34d399" },
+          { label:"รายจ่าย",  value:"฿"+formatMoney(expenseMonth), color:"#ef4444" },
+        ].map(s=>(
+          <div key={s.label} style={{ background:"#1a1a2e", borderRadius:14, padding:"14px", border:"1px solid #222240" }}>
+            <div style={{ fontSize:10, color:"#555", fontWeight:700, marginBottom:6 }}>{s.label}</div>
+            <div style={{ fontSize:18, fontWeight:800, color:s.color }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background:"#1a1a2e", borderRadius:14, padding:"14px 16px", marginBottom:8, border:"1px solid #222240",
+        display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+        <div>
+          <div style={{ fontSize:11, color:"#555", fontWeight:700, marginBottom:4 }}>กำไรสุทธิเดือนนี้</div>
+          <div style={{ fontSize:22, fontWeight:800, color:profitMonth>=0?"#34d399":"#ef4444" }}>
+            {profitMonth>=0?"+":"-"}฿{formatMoney(Math.abs(profitMonth))}
+          </div>
+        </div>
+        <div style={{ textAlign:"right" }}>
+          <div style={{ fontSize:11, color:"#555", fontWeight:700, marginBottom:4 }}>รอเก็บเงิน</div>
+          <div style={{ fontSize:16, fontWeight:800, color:"#fbbf24" }}>฿{formatMoney(pending)}</div>
+        </div>
+      </div>
+      <div style={{ background:"#1a1a2e", borderRadius:12, padding:"10px 14px", marginBottom:16, border:"1px solid #222240" }}>
+        <div style={{ fontSize:11, color:"#555", fontWeight:700, marginBottom:4 }}>รายรับเดือนนี้ แยกประเภท</div>
+        <div style={{ display:"flex", gap:16 }}>
+          <span style={{ fontSize:12, color:"#aaa" }}>จากลูกค้า: <span style={{ color:"#34d399", fontWeight:800 }}>฿{formatMoney(jobIncomeMonth)}</span></span>
+          <span style={{ fontSize:12, color:"#aaa" }}>รายรับอื่นๆ: <span style={{ color:"#60a5fa", fontWeight:800 }}>฿{formatMoney(otherMonth)}</span></span>
+        </div>
+      </div>
+
+      <div style={{ fontWeight:700, fontSize:11, color:"#555", marginBottom:8, letterSpacing:0.5, textTransform:"uppercase" }}>รวมทั้งหมด</div>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:20 }}>
+        {[
+          { label:"รายรับรวม",  value:"฿"+formatMoney(incomeAll),  color:"#34d399" },
+          { label:"รายจ่ายรวม", value:"฿"+formatMoney(expenseAll), color:"#ef4444" },
+          { label:"กำไรรวม",    value:(profitAll>=0?"+":"-")+"฿"+formatMoney(Math.abs(profitAll)), color:profitAll>=0?"#f97316":"#ef4444" },
+        ].map(s=>(
+          <div key={s.label} style={{ background:"#1a1a2e", borderRadius:12, padding:"12px 10px", border:"1px solid #222240" }}>
+            <div style={{ fontSize:10, color:"#555", fontWeight:700, marginBottom:5 }}>{s.label}</div>
+            <div style={{ fontSize:13, fontWeight:800, color:s.color }}>{s.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Other Income List */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+        <div style={{ fontWeight:700, fontSize:13, color:"#555", letterSpacing:0.5, textTransform:"uppercase" }}>รายรับอื่นๆ</div>
+        <button onClick={onAddIncome}
+          style={{ background:"#34d399", border:"none", borderRadius:10, padding:"7px 12px",
+            color:"#0f0f1e", fontWeight:800, fontSize:12, cursor:"pointer", display:"flex", alignItems:"center", gap:4 }}>
+          <Ic n="add" size={13} color="#0f0f1e" /> เพิ่มรายรับ
+        </button>
+      </div>
+      {recentInc.length===0 && <div style={{ color:"#444", textAlign:"center", padding:"12px 0 16px" }}>ยังไม่มีรายรับอื่นๆ</div>}
+      {recentInc.map(o=>(
+        <div key={o.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+          background:"#1a1a2e", borderRadius:10, padding:"11px 14px", marginBottom:8, border:"1px solid #222240" }}>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:13, color:"#ddd", fontWeight:700, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{o.desc}</div>
+            <div style={{ fontSize:11, color:"#555", marginTop:2 }}>{formatDate(o.date)} · {o.cat}</div>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginLeft:10 }}>
+            <span style={{ color:"#34d399", fontWeight:800, fontSize:14, whiteSpace:"nowrap" }}>+฿{formatMoney(o.amount)}</span>
+            <button onClick={()=>{ if(confirm("ลบรายรับนี้?")) onDelIncome(o.id); }}
+              style={{ background:"none", border:"none", color:"#555", cursor:"pointer", padding:2 }}>
+              <Ic n="trash" size={15} />
+            </button>
+          </div>
+        </div>
+      ))}
+
+      {/* Expense List */}
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10, marginTop:8 }}>
+        <div style={{ fontWeight:700, fontSize:13, color:"#555", letterSpacing:0.5, textTransform:"uppercase" }}>รายจ่ายล่าสุด</div>
+        <button onClick={onAddExpense}
+          style={{ background:"#ef4444", border:"none", borderRadius:10, padding:"7px 12px",
+            color:"#fff", fontWeight:800, fontSize:12, cursor:"pointer", display:"flex", alignItems:"center", gap:4 }}>
+          <Ic n="add" size={13} color="#fff" /> เพิ่มรายจ่าย
+        </button>
+      </div>
+      {recentExp.length===0 && <div style={{ color:"#444", textAlign:"center", padding:"20px 0" }}>ยังไม่มีรายจ่าย</div>}
+      {recentExp.map(e=>(
+        <div key={e.id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center",
+          background:"#1a1a2e", borderRadius:10, padding:"11px 14px", marginBottom:8, border:"1px solid #222240" }}>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontSize:13, color:"#ddd", fontWeight:700, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{e.desc}</div>
+            <div style={{ fontSize:11, color:"#555", marginTop:2 }}>{formatDate(e.date)} · {e.cat}</div>
+          </div>
+          <div style={{ display:"flex", alignItems:"center", gap:10, marginLeft:10 }}>
+            <span style={{ color:"#ef4444", fontWeight:800, fontSize:14, whiteSpace:"nowrap" }}>-฿{formatMoney(e.amount)}</span>
+            <button onClick={()=>{ if(confirm("ลบรายจ่ายนี้?")) onDelExpense(e.id); }}
+              style={{ background:"none", border:"none", color:"#555", cursor:"pointer", padding:2 }}>
+              <Ic n="trash" size={15} />
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+// ── Pie Chart ──
+function PieChart({ data, size=180 }) {
+  const total = data.reduce((s,d)=>s+(d.value||0),0);
+  if(total===0) return (
+    <div style={{ width:size,height:size,display:"flex",alignItems:"center",justifyContent:"center",color:"#444",fontSize:13 }}>
+      ไม่มีข้อมูล
+    </div>
+  );
+  const cx=size/2, cy=size/2, r=size/2-14;
+  let ang = -Math.PI/2;
+  const slices = data.filter(d=>d.value>0).map(d=>{
+    const a = (d.value/total)*2*Math.PI;
+    const ea = ang+a;
+    const x1=cx+r*Math.cos(ang), y1=cy+r*Math.sin(ang);
+    const x2=cx+r*Math.cos(ea), y2=cy+r*Math.sin(ea);
+    const ma=ang+a/2;
+    const tx=cx+(r*0.62)*Math.cos(ma), ty=cy+(r*0.62)*Math.sin(ma);
+    const pct=Math.round(d.value/total*100);
+    const path=`M${cx} ${cy} L${x1} ${y1} A${r} ${r} 0 ${a>Math.PI?1:0} 1 ${x2} ${y2} Z`;
+    ang=ea;
+    return {...d,path,tx,ty,pct};
+  });
+  return (
+    <svg width={size} height={size} style={{ overflow:"visible" }}>
+      {slices.map((s,i)=>(
+        <path key={i} d={s.path} fill={s.color} stroke="#0f0f1e" strokeWidth="2"/>
+      ))}
+      {slices.map((s,i)=>s.pct>6&&(
+        <text key={i} x={s.tx} y={s.ty} textAnchor="middle" dominantBaseline="middle"
+          fill="#fff" fontSize="11" fontWeight="bold" style={{ pointerEvents:"none" }}>{s.pct}%</text>
+      ))}
+    </svg>
+  );
+}
+
+function Legend({ data }) {
+  return (
+    <div style={{ display:"flex", flexDirection:"column", gap:6, justifyContent:"center" }}>
+      {data.filter(d=>d.value>0).map((d,i)=>(
+        <div key={i} style={{ display:"flex", alignItems:"center", gap:7 }}>
+          <div style={{ width:12,height:12,borderRadius:3,background:d.color,flexShrink:0 }}/>
+          <span style={{ fontSize:12,color:"#aaa" }}>{d.label}</span>
+          <span style={{ fontSize:12,color:"#fff",fontWeight:700,marginLeft:"auto" }}>฿{formatMoney(d.value)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Charts Tab ──
+function ChartsTab({ jobs, expenses, otherIncome }) {
+  const now = new Date();
+  const [selMonth, setSelMonth] = useState(now.getMonth());
+  const [selYear, setSelYear] = useState(now.getFullYear());
+
+  const monthStr = `${selYear}-${String(selMonth+1).padStart(2,"0")}`;
+
+  // รายรับ
+  const jobInc = jobs.filter(j=>j.status==="done"&&j.date?.slice(0,7)===monthStr).reduce((s,j)=>s+(j.total||0),0);
+  const otherInc = (otherIncome||[]).filter(o=>o.date?.slice(0,7)===monthStr).reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
+  const totalInc = jobInc + otherInc;
+
+  // รายจ่ายแยกหมวด
+  const expMonth = expenses.filter(e=>e.date?.slice(0,7)===monthStr);
+  const expByCat = {};
+  expMonth.forEach(e=>{ expByCat[e.cat]=(expByCat[e.cat]||0)+(parseFloat(e.amount)||0); });
+  const totalExp = Object.values(expByCat).reduce((s,v)=>s+v,0);
+  const profit = totalInc - totalExp;
+
+  const EXP_COLORS = ["#ef4444","#f97316","#fbbf24","#a78bfa","#60a5fa","#34d399","#f472b6","#fb923c","#818cf8","#4ade80","#38bdf8","#e879f9","#facc15"];
+  const expSlices = Object.entries(expByCat).map(([k,v],i)=>({ label:k, value:v, color:EXP_COLORS[i%EXP_COLORS.length] }));
+
+  // 6 เดือนล่าสุด
+  const months6 = Array.from({length:6},(_,i)=>{
+    const d=new Date(selYear,selMonth-i,1);
+    return { ms:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`, label:`${String(d.getMonth()+1).padStart(2,"0")}/${String(d.getFullYear()).slice(2)}` };
+  }).reverse();
+
+  const bar6 = months6.map(m=>{
+    const inc = jobs.filter(j=>j.status==="done"&&j.date?.slice(0,7)===m.ms).reduce((s,j)=>s+(j.total||0),0)
+              + (otherIncome||[]).filter(o=>o.date?.slice(0,7)===m.ms).reduce((s,o)=>s+(parseFloat(o.amount)||0),0);
+    const exp = expenses.filter(e=>e.date?.slice(0,7)===m.ms).reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+    return {...m,inc,exp,profit:inc-exp};
+  });
+  const maxBar = Math.max(...bar6.map(b=>Math.max(b.inc,b.exp)),1);
+
+  const thMonths=["ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
+
+  return (
+    <div>
+      {/* Month selector */}
+      <div style={{ display:"flex", gap:8, marginBottom:16, alignItems:"center" }}>
+        <select value={selMonth} onChange={e=>setSelMonth(+e.target.value)}
+          style={{ flex:1,...inputStyle, fontSize:14 }}>
+          {thMonths.map((m,i)=><option key={i} value={i}>{m}</option>)}
+        </select>
+        <select value={selYear} onChange={e=>setSelYear(+e.target.value)}
+          style={{ width:90,...inputStyle, fontSize:14 }}>
+          {[2567,2568,2569,2570].map(y=><option key={y} value={y-543}>{y}</option>)}
+        </select>
+      </div>
+
+      {/* Summary row */}
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:16 }}>
+        {[
+          {label:"รายรับ",value:totalInc,color:"#34d399"},
+          {label:"รายจ่าย",value:totalExp,color:"#ef4444"},
+          {label:"กำไร",value:profit,color:profit>=0?"#f97316":"#ef4444"},
+        ].map(s=>(
+          <div key={s.label} style={{ background:"#1a1a2e",borderRadius:12,padding:"12px 10px",border:"1px solid #222240",textAlign:"center" }}>
+            <div style={{ fontSize:10,color:"#555",fontWeight:700,marginBottom:4 }}>{s.label}</div>
+            <div style={{ fontSize:13,fontWeight:800,color:s.color }}>{s.value<0?"-":"+"}฿{formatMoney(Math.abs(s.value))}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Pie 1: รายรับ */}
+      <div style={{ background:"#1a1a2e",borderRadius:14,padding:"16px",marginBottom:12,border:"1px solid #222240" }}>
+        <div style={{ fontWeight:800,fontSize:14,marginBottom:12 }}>🟢 รายรับ</div>
+        <div style={{ display:"flex", alignItems:"center", gap:16 }}>
+          <PieChart size={160} data={[
+            {label:"จากลูกค้า",value:jobInc,color:"#34d399"},
+            {label:"รายรับอื่นๆ",value:otherInc,color:"#60a5fa"},
+          ]} />
+          <Legend data={[
+            {label:"จากลูกค้า",value:jobInc,color:"#34d399"},
+            {label:"รายรับอื่นๆ",value:otherInc,color:"#60a5fa"},
+          ]} />
+        </div>
+      </div>
+
+      {/* Pie 2: รายจ่าย */}
+      <div style={{ background:"#1a1a2e",borderRadius:14,padding:"16px",marginBottom:12,border:"1px solid #222240" }}>
+        <div style={{ fontWeight:800,fontSize:14,marginBottom:12 }}>🔴 รายจ่ายแยกหมวด</div>
+        {expSlices.length===0
+          ? <div style={{ color:"#444",textAlign:"center",padding:"20px 0" }}>ไม่มีรายจ่ายเดือนนี้</div>
+          : <div style={{ display:"flex", alignItems:"center", gap:16 }}>
+              <PieChart size={160} data={expSlices} />
+              <Legend data={expSlices} />
+            </div>
+        }
+      </div>
+
+      {/* Pie 3: รายรับ vs รายจ่าย */}
+      <div style={{ background:"#1a1a2e",borderRadius:14,padding:"16px",marginBottom:16,border:"1px solid #222240" }}>
+        <div style={{ fontWeight:800,fontSize:14,marginBottom:12 }}>📊 รายรับ vs รายจ่าย</div>
+        <div style={{ display:"flex", alignItems:"center", gap:16 }}>
+          <PieChart size={160} data={[
+            {label:"รายรับ",value:totalInc,color:"#34d399"},
+            {label:"รายจ่าย",value:totalExp,color:"#ef4444"},
+          ]} />
+          <Legend data={[
+            {label:"รายรับ",value:totalInc,color:"#34d399"},
+            {label:"รายจ่าย",value:totalExp,color:"#ef4444"},
+          ]} />
+        </div>
+      </div>
+
+      {/* Bar: 6 months */}
+      <div style={{ background:"#1a1a2e",borderRadius:14,padding:"16px",marginBottom:16,border:"1px solid #222240" }}>
+        <div style={{ fontWeight:800,fontSize:14,marginBottom:16 }}>📅 6 เดือนล่าสุด</div>
+        <div style={{ display:"flex", alignItems:"flex-end", gap:6, height:120 }}>
+          {bar6.map((b,i)=>(
+            <div key={i} style={{ flex:1,display:"flex",flexDirection:"column",alignItems:"center",gap:3 }}>
+              <div style={{ width:"100%",display:"flex",flexDirection:"column",justifyContent:"flex-end",height:100,gap:2 }}>
+                <div style={{ width:"100%",background:"#34d399",borderRadius:"3px 3px 0 0",
+                  height:Math.round((b.inc/maxBar)*90)+"%", minHeight: b.inc>0?4:0, transition:"height 0.3s" }}/>
+                <div style={{ width:"100%",background:"#ef4444",borderRadius:"3px 3px 0 0",
+                  height:Math.round((b.exp/maxBar)*90)+"%", minHeight: b.exp>0?4:0, transition:"height 0.3s" }}/>
+              </div>
+              <span style={{ fontSize:9,color:"#555",textAlign:"center" }}>{b.label}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{ display:"flex",gap:16,marginTop:10,justifyContent:"center" }}>
+          <div style={{ display:"flex",alignItems:"center",gap:5 }}><div style={{ width:10,height:10,background:"#34d399",borderRadius:2 }}/><span style={{ fontSize:11,color:"#888" }}>รายรับ</span></div>
+          <div style={{ display:"flex",alignItems:"center",gap:5 }}><div style={{ width:10,height:10,background:"#ef4444",borderRadius:2 }}/><span style={{ fontSize:11,color:"#888" }}>รายจ่าย</span></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+function RecoveryBanner({ onRecover }) {
+  const [tried, setTried] = useState(false);
+  const tryRecover = () => {
+    try {
+      // try all localStorage keys
+      for(const k of Object.keys(localStorage)) {
+        try {
+          const val = JSON.parse(localStorage.getItem(k));
+          if(val && Array.isArray(val.customers) && val.customers.length > 0) {
+            if(k !== STORAGE_KEY) localStorage.setItem(STORAGE_KEY, JSON.stringify(val));
+            onRecover(val); return;
+          }
+        } catch{}
+      }
+      // try force-parse current key
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw) { const val = JSON.parse(raw); onRecover(val); return; }
+    } catch{}
+    setTried(true);
+  };
+  return (
+    <div style={{ background:"#2a1010", border:"1px solid #ef4444", borderRadius:14,
+      padding:"20px 16px", margin:"20px 16px", textAlign:"center" }}>
+      <div style={{ fontSize:32, marginBottom:8 }}>⚠️</div>
+      <div style={{ color:"#ef4444", fontWeight:800, fontSize:16, marginBottom:6 }}>ไม่พบข้อมูล</div>
+      <div style={{ color:"#aaa", fontSize:13, marginBottom:16, lineHeight:1.6 }}>
+        ข้อมูลอาจยังอยู่ใน browser<br/>ลองกู้คืนก่อนครับ
+      </div>
+      {tried
+        ? <div style={{ color:"#fbbf24", fontSize:13 }}>ไม่พบข้อมูลสำรองใน browser 😔<br/><br/>ต้องกรอกข้อมูลใหม่ครับ</div>
+        : <button onClick={tryRecover}
+            style={{ background:"#f97316", border:"none", borderRadius:12, padding:"13px 28px",
+              color:"#fff", fontWeight:800, fontSize:15, cursor:"pointer" }}>
+            🔄 กู้คืนข้อมูล
+          </button>
+      }
+    </div>
+  );
+}
+
+function App() {
+  const [data, setData] = useState(loadData);
+  const [tab, setTab] = useState("customers");
+  const [view, setView] = useState(null);
+  const [modal, setModal] = useState(null);
+  const [editTarget, setEditTarget] = useState(null);
+  const [search, setSearch] = useState("");
+
+  const isEmpty = data.customers.length === 0 && data.jobs.length === 0;
+
+  const handleRecover = (recovered) => {
+    if(!recovered.expenses) recovered.expenses = [];
+    if(!recovered.otherIncome) recovered.otherIncome = [];
+    setData(recovered);
+    saveData(recovered);
+  };
+
+  const persist = d => { setData(d); saveData(d); };
+
+  if(isEmpty) return (
+    <div style={{ background:"#0f0f1e", minHeight:"100vh", maxWidth:480, margin:"0 auto",
+      fontFamily:"'Sarabun','Noto Sans Thai',sans-serif", color:"#fff" }}>
+      <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&display=swap" rel="stylesheet"/>
+      <div style={{ padding:"24px 18px 8px", display:"flex", alignItems:"center", gap:10 }}>
+        <img src="https://img1.pic.in.th/images/1000464399.jpg" alt="logo"
+          style={{ width:44, height:44, borderRadius:10, objectFit:"cover" }}/>
+        <div style={{ fontSize:20, fontWeight:800, color:"#f97316" }}>68 Performance</div>
+      </div>
+      <RecoveryBanner onRecover={handleRecover}/>
+      <div style={{ textAlign:"center", marginTop:8 }}>
+        <button onClick={()=>setData({ customers:[], jobs:[], expenses:[], otherIncome:[] })}
+          style={{ background:"none", border:"none", color:"#444", fontSize:12, cursor:"pointer", textDecoration:"underline" }}>
+          เริ่มใหม่เลย (ไม่มีข้อมูลเดิม)
+        </button>
+      </div>
+    </div>
+  );
+
+  const addCustomer = f => {
+    persist({ ...data, customers:[{ id:genId(),...f }, ...data.customers] });
+    setModal(null);
+  };
+  const updCustomer = f => {
+    persist({ ...data, customers:data.customers.map(c=>c.id===editTarget.id?{...c,...f}:c) });
+    if(view?.id===editTarget.id) setView(v=>({...v,...f}));
+    setModal(null); setEditTarget(null);
+  };
+  const delCustomer = id => {
+    persist({ ...data, customers:data.customers.filter(c=>c.id!==id), jobs:data.jobs.filter(j=>j.customerId!==id) });
+    setView(null);
+  };
+  const addJob = f => {
+    const lastNo = data.jobs.reduce((max,j)=>Math.max(max, j.jobNo||0), 0);
+    persist({ ...data, jobs:[...data.jobs,{ id:genId(), jobNo:lastNo+1, ...f }] });
+    setModal(null);
+  };
+  const updJob = f => {
+    persist({ ...data, jobs:data.jobs.map(j=>j.id===editTarget.id?{...j,...f}:j) });
+    setModal(null); setEditTarget(null);
+  };
+  const delJob = id => persist({ ...data, jobs:data.jobs.filter(j=>j.id!==id) });
+  const statusJob = (id,status) => persist({ ...data, jobs:data.jobs.map(j=>j.id===id?{...j,status}:j) });
+  const addExpense = f => {
+    persist({ ...data, expenses:[...(data.expenses||[]),{ id:genId(),...f }] });
+    setModal(null);
+  };
+  const delExpense = id => persist({ ...data, expenses:(data.expenses||[]).filter(e=>e.id!==id) });
+  const addOtherIncome = f => {
+    persist({ ...data, otherIncome:[...(data.otherIncome||[]),{ id:genId(),...f }] });
+    setModal(null);
+  };
+  const delOtherIncome = id => persist({ ...data, otherIncome:(data.otherIncome||[]).filter(o=>o.id!==id) });
+
+  const filtered = data.customers.filter(c => {
+    if(!search) return true;
+    const q = search.toLowerCase();
+    return c.name.toLowerCase().includes(q)||c.phone.includes(q)||
+      c.plate.toLowerCase().includes(q)||c.model.toLowerCase().includes(q);
+  });
+  const cJobs = view ? data.jobs.filter(j=>j.customerId===view.id).sort((a,b)=>b.date.localeCompare(a.date)) : [];
+  const cLabel = view ? `${view.name} · ${view.brand} ${view.model}` : "";
+
+  const btnStyle = (active) => ({
+    flex:1, background:active?"#f97316":"#1a1a2e", border:"none", borderRadius:12,
+    padding:"10px 0", color:active?"#fff":"#666", fontWeight:700, fontSize:13,
+    cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", gap:5,
+    transition:"all 0.15s",
+  });
+
+  return (
+    <div style={{ maxWidth:480, margin:"0 auto", paddingBottom:24, minHeight:"100vh" }}>
+
+      {/* ── Header ── */}
+      {view ? (
+        <div style={{ display:"flex", alignItems:"center", gap:12, padding:"16px 18px",
+          borderBottom:"1px solid #1a1a2e", background:"#0f0f1e", position:"sticky", top:0, zIndex:10 }}>
+          <button onClick={()=>setView(null)} style={{ background:"none",border:"none",color:"#fff",cursor:"pointer",padding:4 }}>
+            <Ic n="back" size={24} />
+          </button>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ fontWeight:800, fontSize:17, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{view.name}</div>
+            <div style={{ fontSize:12, color:"#666" }}>{view.brand} {view.model} · {view.plate}</div>
+          </div>
+          <button onClick={()=>{ setEditTarget(view); setModal("editCustomer"); }}
+            style={{ background:"#1a1a2e",border:"none",borderRadius:10,padding:"8px",color:"#60a5fa",cursor:"pointer" }}>
+            <Ic n="edit" size={18} />
+          </button>
+          <button onClick={()=>{ if(confirm("ลบลูกค้านี้และใบงานทั้งหมด?")) delCustomer(view.id); }}
+            style={{ background:"#1a1a2e",border:"none",borderRadius:10,padding:"8px",color:"#ef4444",cursor:"pointer" }}>
+            <Ic n="trash" size={18} />
+          </button>
+        </div>
+      ) : (
+        <div style={{ padding:"14px 18px 12px", display:"flex", alignItems:"center", justifyContent:"space-between",
+          background:"#0f0f1e", position:"sticky", top:0, zIndex:10, borderBottom:"1px solid #1a1a2e" }}>
+          <div style={{ display:"flex", alignItems:"center", gap:10 }}>
+            <img src="https://img1.pic.in.th/images/1000464399.jpg" alt="logo"
+              style={{ width:44, height:44, borderRadius:10, objectFit:"cover" }} />
+            <div>
+              <div style={{ fontSize:20, fontWeight:800, color:"#f97316" }}>68 Performance</div>
+              <div style={{ fontSize:12, color:"#444", marginTop:1 }}>
+                ลูกค้า {data.customers.length} คน · ใบงาน {data.jobs.length} ใบ
+              </div>
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+            <button onClick={()=>{
+              const json = JSON.stringify(data);
+              const blob = new Blob([json],{type:"application/json"});
+              const a = document.createElement("a");
+              a.href = URL.createObjectURL(blob);
+              a.download = "68performance-backup.json";
+              a.click();
+            }} style={{ background:"#1a1a2e", border:"1px solid #34d399", borderRadius:10,
+              padding:"8px 10px", color:"#34d399", fontWeight:700, fontSize:12, cursor:"pointer" }}>
+              📤 Export
+            </button>
+            <button onClick={()=>{
+              const input = document.createElement("input");
+              input.type="file"; input.accept=".json";
+              input.onchange = e => {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+                reader.onload = ev => {
+                  try {
+                    const imported = JSON.parse(ev.target.result);
+                    if(imported.customers) {
+                      persist(imported);
+                      alert("✅ นำเข้าข้อมูลสำเร็จ!");
+                    } else { alert("❌ ไฟล์ไม่ถูกต้อง"); }
+                  } catch { alert("❌ ไฟล์ไม่ถูกต้อง"); }
+                };
+                reader.readAsText(file);
+              };
+              input.click();
+            }} style={{ background:"#1a1a2e", border:"1px solid #60a5fa", borderRadius:10,
+              padding:"8px 10px", color:"#60a5fa", fontWeight:700, fontSize:12, cursor:"pointer" }}>
+              📥 Import
+            </button>
+          </div>
+          <button onClick={()=>setModal("addCustomer")}
+            style={{ background:"#f97316",border:"none",borderRadius:12,padding:"10px 14px",
+              color:"#fff",fontWeight:800,fontSize:14,cursor:"pointer",display:"flex",alignItems:"center",gap:6 }}>
+            <Ic n="add" size={16} color="#fff" /> เพิ่มลูกค้า
+          </button>
+        </div>
+      )}
+
+      {/* ── Customer Detail ── */}
+      {view ? (
+        <div style={{ padding:"16px 16px 0" }}>
+          <div style={{ background:"#1a1a2e", borderRadius:14, padding:"14px 16px", marginBottom:16, border:"1px solid #222240" }}>
+            {view.bikePhoto && (
+              <img src={view.bikePhoto} style={{ width:"100%", borderRadius:10, maxHeight:200,
+                objectFit:"cover", display:"block", marginBottom:12 }}/>
+            )}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+              {[["เบอร์โทร",view.phone],["ทะเบียน",view.plate],["ยี่ห้อ",view.brand],["รุ่น",view.model],["ปี",view.year],["สีรถ",view.color],["วันที่รับรถ", view.receiveDate ? formatDate(view.receiveDate) : "-"],["วันที่เสร็จ", view.finishDate ? formatDate(view.finishDate) : "-"]].filter(([,v])=>v).map(([k,v])=>(
+                <div key={k}>
+                  <div style={{ fontSize:10, color:"#555", fontWeight:700, letterSpacing:0.5, textTransform:"uppercase", marginBottom:3 }}>{k}</div>
+                  <div style={{ fontSize:14, color:"#ddd", fontWeight:700 }}>{v||"-"}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
+            <span style={{ fontWeight:800, fontSize:15 }}>ประวัติงาน ({cJobs.length})</span>
+            <button onClick={()=>setModal("addJob")}
+              style={{ background:"#f97316",border:"none",borderRadius:10,padding:"8px 14px",
+                color:"#fff",fontWeight:800,fontSize:13,cursor:"pointer",display:"flex",alignItems:"center",gap:5 }}>
+              <Ic n="add" size={14} color="#fff" /> เพิ่มใบงาน
+            </button>
+          </div>
+
+          {cJobs.length===0 && (
+            <div style={{ textAlign:"center", color:"#444", padding:"40px 0" }}>
+              <Ic n="wrench" size={36} color="#333" />
+              <div style={{ marginTop:12, fontSize:14 }}>ยังไม่มีใบงาน</div>
+            </div>
+          )}
+          {cJobs.map(job=>(
+            <JobCard key={job.id} job={job}
+              onEdit={j=>{ setEditTarget(j); setModal("editJob"); }}
+              onDelete={delJob} onStatus={statusJob} />
+          ))}
+        </div>
+      ) : (
+        /* ── Main Tabs ── */
+        <div>
+          <div style={{ display:"flex", padding:"14px 14px 10px", gap:8 }}>
+            {[["customers","ลูกค้า","person"],["jobs","ใบงาน","list"],["summary","สรุป","money"],["charts","กราฟ","chart"]].map(([t,label,icon])=>(
+              <button key={t} onClick={()=>setTab(t)} style={btnStyle(tab===t)}>
+                <Ic n={icon} size={15} color={tab===t?"#fff":"#666"} /> {label}
+              </button>
+            ))}
+          </div>
+          <div style={{ padding:"0 14px" }}>
+
+            {tab==="customers" && (
+              <>
+                <div style={{ position:"relative", marginBottom:14 }}>
+                  <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)" }}>
+                    <Ic n="search" size={16} color="#444" />
+                  </span>
+                  <input value={search} onChange={e=>setSearch(e.target.value)}
+                    placeholder="ค้นหาชื่อ เบอร์ ทะเบียน รุ่นรถ..."
+                    style={{ ...inputStyle, paddingLeft:38 }} />
+                </div>
+                {filtered.length===0 && (
+                  <div style={{ textAlign:"center", color:"#444", padding:"50px 0" }}>
+                    <Ic n="person" size={40} color="#333" />
+                    <div style={{ marginTop:12 }}>{search?"ไม่พบลูกค้า":"ยังไม่มีลูกค้า"}</div>
+                  </div>
+                )}
+                {filtered.map(c => {
+                  const cj = data.jobs.filter(j=>j.customerId===c.id);
+                  const active = cj.find(j=>j.status!=="done");
+                  return (
+                    <div key={c.id} onClick={()=>setView(c)}
+                      style={{ background:"#1a1a2e", borderRadius:14, padding:"14px 16px", marginBottom:10,
+                        cursor:"pointer", border:active?"1px solid #3a2d10":"1px solid #222240" }}>
+                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                        <div>
+                          <div style={{ fontWeight:800, fontSize:16 }}>{c.name}</div>
+                          <div style={{ color:"#666", fontSize:13, marginTop:2 }}>{c.phone}</div>
+                        </div>
+                        {active && <Badge status={active.status} />}
+                      </div>
+                      <div style={{ marginTop:10, display:"flex", gap:8, flexWrap:"wrap" }}>
+                        <span style={{ background:"#0d0d1c",borderRadius:8,padding:"3px 10px",fontSize:12,color:"#60a5fa" }}>
+                          🏍️ {c.brand} {c.model}
+                        </span>
+                        <span style={{ background:"#0d0d1c",borderRadius:8,padding:"3px 10px",fontSize:12,color:"#aaa" }}>
+                          {c.plate}
+                        </span>
+                        {c.receiveDate && <span style={{ background:"#1e2a1a",borderRadius:8,padding:"3px 10px",fontSize:12,color:"#86efac" }}>
+                          📅 รับ {formatDate(c.receiveDate)}
+                        </span>}
+                        {c.finishDate && <span style={{ background:"#1e1a2a",borderRadius:8,padding:"3px 10px",fontSize:12,color:"#c4b5fd" }}>
+                          ✅ เสร็จ {formatDate(c.finishDate)}
+                        </span>}
+                        <span style={{ background:"#0d0d1c",borderRadius:8,padding:"3px 10px",fontSize:12,color:"#555" }}>
+                          {cj.length} ใบงาน
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+
+            {tab==="jobs" && (
+              <>
+                <div style={{ position:"relative", marginBottom:14 }}>
+                  <span style={{ position:"absolute", left:12, top:"50%", transform:"translateY(-50%)" }}>
+                    <Ic n="search" size={16} color="#444" />
+                  </span>
+                  <input value={search} onChange={e=>setSearch(e.target.value)}
+                    placeholder="ค้นหาเลขใบงาน ชื่อลูกค้า รุ่นรถ..."
+                    style={{ ...inputStyle, paddingLeft:38 }} />
+                </div>
+                {data.jobs.length===0 && (
+                  <div style={{ textAlign:"center", color:"#444", padding:"50px 0" }}>
+                    <Ic n="wrench" size={40} color="#333" />
+                    <div style={{ marginTop:12 }}>ยังไม่มีใบงาน</div>
+                  </div>
+                )}
+                {[...data.jobs]
+                  .filter(job => {
+                    if(!search) return true;
+                    const q = search.toLowerCase().replace("#","");
+                    const c = data.customers.find(x=>x.id===job.customerId);
+                    return (
+                      String(job.jobNo||"").includes(q) ||
+                      String(job.jobNo||"").padStart(4,"0").includes(q) ||
+                      (c?.name||"").toLowerCase().includes(q) ||
+                      (c?.model||"").toLowerCase().includes(q) ||
+                      (job.note||"").toLowerCase().includes(q)
+                    );
+                  })
+                  .sort((a,b)=>(b.jobNo||0)-(a.jobNo||0))
+                  .map(job => {
+                  const c = data.customers.find(x=>x.id===job.customerId);
+                  return (
+                    <div key={job.id}>
+                      {c && <div style={{ fontSize:12,color:"#666",marginBottom:4,paddingLeft:4,fontWeight:700 }}>
+                        🏍️ {c.name} · {c.brand} {c.model}
+                      </div>}
+                      <JobCard job={job}
+                        onEdit={j=>{ setView(c); setEditTarget(j); setModal("editJob"); }}
+                        onDelete={delJob} onStatus={statusJob} />
+                    </div>
+                  );
+                })}
+              </>
+            )}
+
+            {tab==="summary" && <Summary jobs={data.jobs} expenses={data.expenses||[]}
+              otherIncome={data.otherIncome||[]}
+              onAddExpense={()=>setModal("addExpense")} onDelExpense={delExpense}
+              onAddIncome={()=>setModal("addIncome")} onDelIncome={delOtherIncome} />}
+
+            {tab==="charts" && <ChartsTab jobs={data.jobs} expenses={data.expenses||[]} otherIncome={data.otherIncome||[]} />}
+          </div>
+        </div>
+      )}
+
+      {/* ── Modals ── */}
+      {modal==="addCustomer" && (
+        <Modal title="เพิ่มลูกค้าใหม่" onClose={()=>setModal(null)}>
+          <CustomerForm onSave={addCustomer} />
+        </Modal>
+      )}
+      {modal==="editCustomer" && editTarget && (
+        <Modal title="แก้ไขข้อมูลลูกค้า" onClose={()=>{ setModal(null); setEditTarget(null); }}>
+          <CustomerForm init={editTarget} onSave={updCustomer} />
+        </Modal>
+      )}
+      {modal==="addJob" && view && (
+        <Modal title="สร้างใบงาน" onClose={()=>setModal(null)}>
+          <JobForm customerId={view.id} customerLabel={cLabel} onSave={addJob} />
+        </Modal>
+      )}
+      {modal==="editJob" && editTarget && view && (
+        <Modal title="แก้ไขใบงาน" onClose={()=>{ setModal(null); setEditTarget(null); }}>
+          <JobForm customerId={view.id} customerLabel={cLabel} init={editTarget} onSave={updJob} />
+        </Modal>
+      )}
+      {modal==="addExpense" && (
+        <Modal title="เพิ่มรายจ่าย" onClose={()=>setModal(null)}>
+          <ExpenseForm onSave={addExpense} />
+        </Modal>
+      )}
+      {modal==="addIncome" && (
+        <Modal title="เพิ่มรายรับอื่นๆ" onClose={()=>setModal(null)}>
+          <OtherIncomeForm onSave={addOtherIncome} />
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
