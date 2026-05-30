@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>68 Performance</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+:root {
+  --bg:#0a0a0c; --surface:#131316; --surface2:#1a1a1f; --surface3:#222228;
+  --border:#2c2c34; --border2:#38383f;
+  --orange:#f97316; --orange2:#ea6600; --orange-dim:rgba(249,115,22,.1);
+  --green:#22c55e; --green-dim:rgba(34,197,94,.1);
+  --red:#ef4444; --red-dim:rgba(239,68,68,.1);
+  --blue:#60a5fa; --blue-dim:rgba(96,165,250,.1);
+  --yellow:#fbbf24;
+  --text:#f0f0f4; --text-dim:#9898a8; --text-muted:#55555f;
+  --r:16px; --rs:10px; --rx:6px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html{font-size:16px}
+body{font-family:'Kanit',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;max-width:480px;margin:0 auto;overflow-x:hidden}
+
+/* HEADER */
+.header{position:sticky;top:0;z-index:60;background:var(--bg);border-bottom:1px solid var(--border);padding:14px 16px 0}
+.hrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.logo{font-size:20px;font-weight:800;color:var(--orange);letter-spacing:-.5px;line-height:1}
+.logo-sub{font-size:11px;color:var(--text-muted);font-weight:400;margin-top:1px}
+.chips{display:flex;gap:6px}
+.chip{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:5px 10px;font-size:11px;color:var(--text-dim);display:flex;align-items:center;gap:4px}
+.chip b{color:var(--orange);font-weight:700;font-family:'IBM Plex Mono',monospace}
+
+/* SEARCH */
+.srch-wrap{position:relative;margin-bottom:12px}
+.srch-icon{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;pointer-events:none}
+.srch{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px 10px 36px;font-family:'Kanit',sans-serif;font-size:14px;color:var(--text);outline:none;transition:border-color .2s}
+.srch:focus{border-color:var(--orange)}
+.srch::placeholder{color:var(--text-muted)}
+
+/* TABS */
+.tabs{display:flex}
+.tab{flex:1;text-align:center;padding:10px 4px;font-size:12px;font-weight:600;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;transition:all .2s;white-space:nowrap}
+.tab.active{color:var(--orange);border-bottom-color:var(--orange)}
+
+/* PANELS */
+.panel{display:none;padding:14px 16px 100px}
+.panel.active{display:block}
+
+/* EMPTY */
+.empty{text-align:center;padding:60px 20px;color:var(--text-muted);font-size:13px}
+.empty-ico{font-size:44px;margin-bottom:10px;opacity:.35}
+
+/* CUSTOMER CARDS */
+.cust-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:10px;cursor:pointer;transition:border-color .15s}
+.cust-card.expanded{border-color:var(--border2)}
+.cch{padding:13px;display:flex;align-items:center;gap:11px}
+.avatar{width:44px;height:44px;border-radius:11px;background:var(--surface3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;overflow:hidden}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.cinfo{flex:1;min-width:0}
+.cname{font-size:15px;font-weight:700;line-height:1.2}
+.cnum{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text-muted);margin-right:5px}
+.cphone{font-size:12px;color:var(--text-muted);margin-top:2px;font-family:'IBM Plex Mono',monospace}
+.cbike{display:flex;align-items:center;gap:5px;margin-top:4px;flex-wrap:wrap}
+.bike-tag{background:var(--orange-dim);color:var(--orange);border:1px solid rgba(249,115,22,.25);border-radius:var(--rx);padding:2px 7px;font-size:10px;font-weight:600}
+.plate-tag{background:var(--surface3);color:var(--text-dim);border:1px solid var(--border);border-radius:var(--rx);padding:2px 7px;font-size:10px;font-family:'IBM Plex Mono',monospace}
+.sdot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.sdot.active{background:var(--green);box-shadow:0 0 6px var(--green)}
+.sdot.done{background:var(--text-muted)}
+.sdot.pending{background:var(--yellow);box-shadow:0 0 6px var(--yellow)}
+
+.cexp{display:none;border-top:1px solid var(--border);padding:13px;background:var(--surface2);animation:fadeIn .2s ease}
+.cust-card.expanded .cexp{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+
+.dgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.di .dl{font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px}
+.di .dv{font-size:13px;font-weight:500}
+.di .dv.mono{font-family:'IBM Plex Mono',monospace;font-size:12px}
+.bike-photo{width:100%;border-radius:var(--rs);object-fit:cover;max-height:150px;margin-bottom:12px;border:1px solid var(--border);display:none}
+.bike-photo.show{display:block}
+.arow{display:flex;gap:7px}
+.abtn{flex:1;padding:9px;border-radius:var(--rx);border:none;font-family:'Kanit',sans-serif;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px;transition:opacity .15s}
+.abtn:hover{opacity:.8}
+.btn-call{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.btn-edit{background:var(--orange-dim);color:var(--orange);border:1px solid rgba(249,115,22,.2)}
+.btn-del{background:var(--red-dim);color:var(--red);border:1px solid rgba(239,68,68,.2)}
+.btn-done-confirm{width:100%;padding:12px;border-radius:var(--rx);border:none;font-family:'Kanit',sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:opacity .15s;background:#14532d;color:var(--green);border:1px solid rgba(34,197,94,.3)}
+.btn-done-confirm:hover{opacity:.85}
+.btn-job{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(96,165,250,.2)}
+
+/* STATUS BADGE */
+.sbadge{padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700}
+.sbadge.done{background:var(--green-dim);color:var(--green);border:1px solid rgba(34,197,94,.2)}
+.sbadge.pending{background:rgba(251,191,36,.1);color:var(--yellow);border:1px solid rgba(251,191,36,.2)}
+.sbadge.inprog{background:var(--blue-dim);color:var(--blue);border:1px solid rgba(96,165,250,.2)}
+
+/* ─── JOB CARDS ─── */
+.job-group-label{font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.8px;text-transform:uppercase;margin:14px 0 6px;display:flex;align-items:center;gap:6px}
+.job-group-label::after{content:'';flex:1;height:1px;background:var(--border)}
+
+.jcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:13px;margin-bottom:8px}
+.jcard-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.jnum{background:var(--orange);color:white;border-radius:8px;padding:3px 9px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;flex-shrink:0}
+.jdate{font-size:12px;color:var(--text-dim);font-family:'IBM Plex Mono',monospace;flex:1}
+.jcard-cust{font-size:13px;color:var(--blue);font-weight:600;margin-bottom:3px}
+.jcard-bike{font-size:11px;color:var(--text-muted);margin-bottom:8px}
+
+.jitems{border-top:1px solid var(--border);padding-top:8px}
+.jitem-row{display:flex;justify-content:space-between;align-items:baseline;padding:4px 0;font-size:13px}
+.jitem-cat{font-size:10px;color:var(--text-muted);background:var(--surface2);border:1px solid var(--border);border-radius:4px;padding:1px 6px;margin-right:6px}
+.jitem-desc{flex:1;color:var(--text-dim)}
+.jitem-price{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--orange)}
+.jtotal-row{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--border);margin-top:8px;padding-top:8px}
+.jtotal-lbl{font-size:13px;color:var(--text-muted)}
+.jtotal-val{font-family:'IBM Plex Mono',monospace;font-size:18px;font-weight:700;color:var(--orange)}
+.jcard-actions{display:flex;gap:7px;margin-top:10px;border-top:1px solid var(--border);padding-top:10px}
+
+/* SUMMARY */
+.sblock{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.sblock-title{font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;font-weight:700;margin-bottom:12px}
+.bignum{font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:700;color:var(--orange);line-height:1}
+.biglbl{font-size:11px;color:var(--text-muted);margin-top:3px}
+.srow{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px}
+.srow:last-child{border-bottom:none}
+.srow .lbl{color:var(--text-dim)}
+.srow .val{font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600}
+.hbar-item{margin-bottom:8px}
+.hbar-name{font-size:12px;color:var(--text-dim);display:flex;justify-content:space-between;margin-bottom:3px}
+.hbar-track{height:7px;background:var(--surface3);border-radius:4px;overflow:hidden}
+.hbar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--orange2),var(--orange));transition:width .5s ease}
+
+/* CHART */
+.cblock{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;margin-bottom:12px}
+.clabel{font-size:13px;font-weight:600;margin-bottom:14px;color:var(--text-dim)}
+.mbars{display:flex;align-items:flex-end;gap:8px;height:100px}
+.mbg{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px}
+.mbar{width:100%;border-radius:4px 4px 0 0;background:linear-gradient(180deg,var(--orange),var(--orange2));transition:height .5s;min-height:2px}
+.mbar-lbl{font-size:9px;color:var(--text-muted)}
+.mbar-val{font-size:9px;color:var(--orange);font-family:'IBM Plex Mono',monospace;font-weight:600}
+
+/* FAB */
+.fab{position:fixed;bottom:24px;right:calc(50% - 230px);background:var(--orange);color:white;border:none;border-radius:50px;padding:13px 22px;font-family:'Kanit',sans-serif;font-size:14px;font-weight:700;cursor:pointer;z-index:50;box-shadow:0 4px 24px rgba(249,115,22,.4);display:flex;align-items:center;gap:7px;transition:transform .15s,box-shadow .15s}
+.fab:hover{transform:translateY(-2px);box-shadow:0 6px 30px rgba(249,115,22,.5)}
+@media(max-width:480px){.fab{right:16px}}
+.fab2{right:calc(50% - 230px);background:var(--blue)}
+@media(max-width:480px){.fab2{right:16px}}
+
+/* OVERLAY & MODAL */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);z-index:200;align-items:flex-end;justify-content:center;backdrop-filter:blur(6px)}
+.overlay.open{display:flex}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:24px 24px 0 0;padding:20px 18px 40px;width:100%;max-width:480px;max-height:92vh;overflow-y:auto;animation:slideUp .3s cubic-bezier(.34,1.56,.64,1)}
+@keyframes slideUp{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+.mhandle{width:38px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 18px}
+.mtitle{font-size:19px;font-weight:800;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center}
+.mclose{width:30px;height:30px;border-radius:50%;background:var(--surface3);border:1px solid var(--border);color:var(--text-dim);cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center}
+
+/* FORM */
+.field{margin-bottom:13px}
+.flabel{font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;display:flex;align-items:center;gap:3px}
+.req{color:var(--orange)}
+.inp{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:11px 13px;font-family:'Kanit',sans-serif;font-size:14px;color:var(--text);outline:none;transition:border-color .2s;-webkit-appearance:none}
+.inp:focus{border-color:var(--orange);background:var(--surface3)}
+.inp::placeholder{color:var(--text-muted)}
+.inp-row{display:flex;gap:9px}
+.inp-row .field{flex:1}
+.sel{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 13px center;padding-right:34px;cursor:pointer}
+.sel option{background:var(--surface2)}
+
+.photo-up{width:100%;min-height:90px;background:var(--surface2);border:1px dashed var(--border2);border-radius:var(--rs);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;transition:border-color .2s;overflow:hidden;position:relative}
+.photo-up:hover{border-color:var(--orange)}
+.photo-up input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.photo-up img{width:100%;max-height:160px;object-fit:cover;display:none}
+.photo-up img.show{display:block}
+.up-ico{font-size:26px;opacity:.35}
+.up-txt{font-size:12px;color:var(--text-muted)}
+
+.status-row{display:flex;gap:7px}
+.sopt{flex:1;padding:8px;border-radius:var(--rx);border:1px solid var(--border);background:var(--surface2);font-family:'Kanit',sans-serif;font-size:11px;font-weight:600;cursor:pointer;text-align:center;color:var(--text-dim);transition:all .15s}
+.sopt.sel-pending{background:rgba(251,191,36,.1);color:var(--yellow);border-color:rgba(251,191,36,.3)}
+.sopt.sel-inprog{background:var(--blue-dim);color:var(--blue);border-color:rgba(96,165,250,.3)}
+.sopt.sel-done{background:var(--green-dim);color:var(--green);border-color:rgba(34,197,94,.3)}
+
+.savebtn{width:100%;padding:14px;background:var(--orange);color:white;border:none;border-radius:var(--rs);font-family:'Kanit',sans-serif;font-size:16px;font-weight:700;cursor:pointer;margin-top:6px;transition:opacity .2s}
+.savebtn:hover{opacity:.85}
+
+/* JOB FORM ITEMS */
+.job-items-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.jfi{background:var(--surface3);border:1px solid var(--border);border-radius:var(--rs);padding:11px;position:relative}
+.jfi-row{display:flex;gap:7px;margin-bottom:7px}
+.jfi-row:last-child{margin-bottom:0}
+.jfi-del{position:absolute;top:8px;right:8px;background:var(--red-dim);border:1px solid rgba(239,68,68,.2);color:var(--red);border-radius:6px;width:26px;height:26px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px}
+.add-item-btn{width:100%;padding:10px;background:none;border:1px dashed var(--border2);border-radius:var(--rs);font-family:'Kanit',sans-serif;font-size:13px;color:var(--text-muted);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:12px}
+.add-item-btn:hover{border-color:var(--orange);color:var(--orange)}
+.jtotal-preview{display:flex;justify-content:space-between;align-items:center;background:var(--surface3);border:1px solid var(--border);border-radius:var(--rs);padding:12px 14px;margin-bottom:12px}
+.jtotal-preview .lbl{font-size:14px;color:var(--text-dim)}
+.jtotal-preview .val{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:700;color:var(--orange)}
+
+/* cust picker in job modal */
+.cust-pick-btn{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);padding:11px 13px;font-family:'Kanit',sans-serif;font-size:14px;color:var(--text);cursor:pointer;text-align:left;transition:border-color .2s;display:flex;align-items:center;justify-content:space-between}
+.cust-pick-btn:focus,.cust-pick-btn.active{border-color:var(--orange)}
+.cust-picker-list{background:var(--surface2);border:1px solid var(--border);border-radius:var(--rs);max-height:180px;overflow-y:auto;display:none;margin-top:4px}
+.cust-picker-list.open{display:block}
+.cpi{padding:10px 13px;cursor:pointer;font-size:14px;border-bottom:1px solid var(--border);transition:background .1s}
+.cpi:last-child{border-bottom:none}
+.cpi:hover{background:var(--surface3)}
+.cpi .csub{font-size:11px;color:var(--text-muted);margin-top:2px}
+
+@media(min-width:480px){body{border-left:1px solid var(--border);border-right:1px solid var(--border)}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="hrow">
+    <div><div class="logo">68 Performance</div><div class="logo-sub">ระบบจัดการลูกค้าและรถ</div></div>
+    <div class="chips">
+      <div class="chip">👥 <b id="stat-c">0</b></div>
+      <div class="chip">🔧 <b id="stat-j">0</b></div>
+    </div>
+  </div>
+  <div class="srch-wrap">
+    <span class="srch-icon">🔍</span>
+    <input class="srch" id="srchInp" type="text" placeholder="ค้นหาชื่อ เบอร์ ทะเบียน รุ่นรถ..." oninput="onSearch()">
+  </div>
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('customers')">👤 ลูกค้า</div>
+    <div class="tab" onclick="switchTab('jobs')">🔧 ใบงาน</div>
+    <div class="tab" onclick="switchTab('summary')">📊 สรุป</div>
+    <div class="tab" onclick="switchTab('chart')">📈 กราฟ</div>
+  </div>
+</div>
+
+<div class="panel active" id="panel-customers"><div class="cust-list" id="cust-list"></div></div>
+<div class="panel" id="panel-jobs"><div id="job-list"></div></div>
+<div class="panel" id="panel-summary">
+  <div class="sblock">
+    <div class="sblock-title">ภาพรวม</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;text-align:center">
+      <div><div class="bignum" id="s-c">0</div><div class="biglbl">ลูกค้า</div></div>
+      <div><div class="bignum" style="color:var(--green)" id="s-jd">0</div><div class="biglbl">ใบงานเสร็จ</div></div>
+      <div><div class="bignum" style="color:var(--yellow)" id="s-jp">0</div><div class="biglbl">รอดำเนินการ</div></div>
+    </div>
+  </div>
+  <div class="sblock">
+    <div class="sblock-title">รายได้รวม (ใบงานทั้งหมด)</div>
+    <div class="bignum" id="s-rev" style="font-size:26px">฿0</div>
+    <div class="biglbl">จากใบงานที่มีราคา</div>
+  </div>
+  <div class="sblock">
+    <div class="sblock-title">ยี่ห้อรถยอดนิยม</div>
+    <div id="brand-bars"></div>
+  </div>
+  <div class="sblock">
+    <div class="sblock-title">หมวดงานที่ทำบ่อย</div>
+    <div id="cat-bars"></div>
+  </div>
+</div>
+<div class="panel" id="panel-chart">
+  <div class="cblock">
+    <div class="clabel">จำนวนใบงานต่อเดือน (6 เดือน)</div>
+    <div class="mbars" id="month-bars"></div>
+  </div>
+  <div class="cblock">
+    <div class="clabel">รายได้ต่อเดือน (6 เดือน)</div>
+    <div class="mbars" id="rev-bars"></div>
+  </div>
+</div>
+
+<!-- FAB CUSTOMERS -->
+<button class="fab" id="fab-cust" onclick="openCustModal()">＋ เพิ่มลูกค้า</button>
+<!-- FAB JOBS -->
+<button class="fab" id="fab-job" style="display:none;background:var(--blue);box-shadow:0 4px 24px rgba(96,165,250,.4)" onclick="openJobModal()">＋ สร้างใบงาน</button>
+
+<!-- CUSTOMER MODAL -->
+<div class="overlay" id="ov-cust">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <div class="mtitle"><span id="cm-title">เพิ่มลูกค้าใหม่</span><button class="mclose" onclick="closeCustModal()">✕</button></div>
+    <input type="hidden" id="ce-id">
+    <div class="field"><div class="flabel">ชื่อลูกค้า <span class="req">*</span></div><input class="inp" id="cf-name" type="text" placeholder="เช่น Max, ไอซ์..."></div>
+    <div class="field"><div class="flabel">เบอร์โทร</div><input class="inp" id="cf-phone" type="tel" placeholder="0616178979" inputmode="tel"></div>
+    <div class="inp-row">
+      <div class="field"><div class="flabel">ยี่ห้อ <span class="req">*</span></div>
+        <select class="inp sel" id="cf-brand">
+          <option value="">เลือก...</option>
+          <option>Honda</option><option>Yamaha</option><option>Kawasaki</option><option>Suzuki</option>
+          <option>Ducati</option><option>Triumph</option><option>BMW</option><option>KTM</option>
+          <option>Husqvarna</option><option>Harley-Davidson</option><option>Royal Enfield</option>
+          <option>Benelli</option><option>CFMoto</option><option>Vespa</option><option>อื่นๆ</option>
+        </select>
+      </div>
+      <div class="field"><div class="flabel">รุ่นรถ <span class="req">*</span></div><input class="inp" id="cf-model" type="text" placeholder="Forza350, CBR..."></div>
+    </div>
+    <div class="inp-row">
+      <div class="field"><div class="flabel">สีรถ</div><input class="inp" id="cf-color" type="text" placeholder="ดำ, แดง..."></div>
+      <div class="field"><div class="flabel">ปีรถ</div><input class="inp" id="cf-year" type="number" placeholder="2024" inputmode="numeric"></div>
+    </div>
+    <div class="field"><div class="flabel">ทะเบียน</div><input class="inp" id="cf-plate" type="text" placeholder="1กผ5194 ลำปาง" style="font-family:'IBM Plex Mono',monospace"></div>
+    <div class="inp-row">
+      <div class="field"><div class="flabel">📅 วันที่รับรถ</div><input class="inp" id="cf-datein" type="date"></div>
+      <div class="field"><div class="flabel">✅ วันที่เสร็จ</div><input class="inp" id="cf-dateout" type="date"></div>
+    </div>
+    <div class="field">
+      <div class="flabel">สถานะงาน</div>
+      <div class="status-row">
+        <div class="sopt" id="copt-pending" onclick="cSelStatus('pending')">⏳ รอดำเนินการ</div>
+        <div class="sopt" id="copt-inprog" onclick="cSelStatus('inprog')">🔧 กำลังซ่อม</div>
+        <div class="sopt" id="copt-done" onclick="cSelStatus('done')">✅ เสร็จแล้ว</div>
+      </div>
+    </div>
+    <div class="field"><div class="flabel">หมายเหตุ</div><input class="inp" id="cf-note" type="text" placeholder="อาการรถ, รายละเอียด..."></div>
+    <div class="field">
+      <div class="flabel">📷 รูปรถ</div>
+      <div class="photo-up" onclick="document.getElementById('cf-photo').click()">
+        <input type="file" id="cf-photo" accept="image/*" onchange="prevPhoto(event,'cf-photo-prev','cf-ph-placeholder')" style="display:none">
+        <img id="cf-photo-prev" alt="">
+        <div id="cf-ph-placeholder"><div class="up-ico">🏍️</div><div class="up-txt">แตะเพื่อเลือกรูปรถ</div></div>
+      </div>
+    </div>
+    <button class="savebtn" onclick="saveCust()">บันทึก</button>
+  </div>
+</div>
+
+<!-- JOB MODAL -->
+<div class="overlay" id="ov-job">
+  <div class="modal">
+    <div class="mhandle"></div>
+    <div class="mtitle"><span id="jm-title">สร้างใบงาน</span><button class="mclose" onclick="closeJobModal()">✕</button></div>
+    <input type="hidden" id="je-id">
+
+    <div class="field">
+      <div class="flabel">ลูกค้า <span class="req">*</span></div>
+      <button class="cust-pick-btn" id="cust-pick-btn" onclick="toggleCustPicker()">
+        <span id="cust-pick-label">เลือกลูกค้า...</span>
+        <span style="color:var(--text-muted);font-size:12px">▼</span>
+      </button>
+      <div class="cust-picker-list" id="cust-picker-list"></div>
+      <input type="hidden" id="jf-custid">
+    </div>
+
+    <div class="inp-row">
+      <div class="field"><div class="flabel">📅 วันที่</div><input class="inp" id="jf-date" type="date"></div>
+      <div class="field">
+        <div class="flabel">สถานะ</div>
+        <select class="inp sel" id="jf-status">
+          <option value="pending">⏳ รอดำเนินการ</option>
+          <option value="inprog">🔧 กำลังซ่อม</option>
+          <option value="done">✅ เสร็จแล้ว</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="flabel" style="margin-bottom:8px">รายการงาน / อะไหล่ <span style="color:var(--text-muted);font-size:10px">(กดค้างที่ ≡ เพื่อลากเรียง)</span></div>
+    <div class="job-items-list" id="jf-items"></div>
+    <button class="add-item-btn" onclick="addJobItem()">⊕ เพิ่มรายการ</button>
+
+    <div class="jtotal-preview">
+      <span class="lbl">ยอดรวม</span>
+      <span class="val" id="jf-total">฿0</span>
+    </div>
+
+    <div class="field"><div class="flabel">หมายเหตุ</div><input class="inp" id="jf-note" type="text" placeholder="อาการรถ / หมายเหตุเพิ่มเติม"></div>
+    <button class="savebtn" onclick="saveJob()">บันทึกใบงาน</button>
+  </div>
+</div>
+
+<script>
+// ─── DATA ───
+let customers = JSON.parse(localStorage.getItem('68perf_customers')||'[]');
+let jobs = JSON.parse(localStorage.getItem('68perf_jobs')||'[]');
+
+function saveC(){ localStorage.setItem('68perf_customers', JSON.stringify(customers)); }
+function saveJ(){ localStorage.setItem('68perf_jobs', JSON.stringify(jobs)); }
+function genId(){ return Date.now()+'_'+Math.random().toString(36).slice(2,7); }
+function todayStr(){ return new Date().toISOString().split('T')[0]; }
+function thDate(s){
+  if(!s)return'—';
+  const[y,m,d]=s.split('-');
+  const ms=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  return`${parseInt(d)} ${ms[parseInt(m)-1]} ${parseInt(y)+543}`;
+}
+function fmtMoney(n){ return '฿'+(n||0).toLocaleString('th-TH'); }
+
+let curTab='customers';
+let cEditId=null, cStatus='pending', cPhoto='';
+let jEditId=null, jPickedCust=null;
+const JOB_CATS=['ค่าแรง','อะไหล่','น้ำมันเครื่อง','ไส้กรองน้ำมันเครื่อง','ยาง','โซ่/สเตอร์','เปลี่ยนน้ำมันเบรค','ล้างปั้มเบรค','ระบบไฟ','เช็ค+ลบโค้ท','ล้างรถ','อื่นๆ'];
+
+// ─── TABS ───
+function switchTab(tab){
+  curTab=tab;
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',['customers','jobs','summary','chart'][i]===tab));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.getElementById('panel-'+tab).classList.add('active');
+  document.getElementById('fab-cust').style.display=tab==='customers'?'flex':'none';
+  document.getElementById('fab-job').style.display=tab==='jobs'?'flex':'none';
+  if(tab==='jobs') renderJobs();
+  if(tab==='summary') renderSummary();
+  if(tab==='chart') renderChart();
+}
+
+function onSearch(){
+  if(curTab==='customers') renderCustomers();
+  else if(curTab==='jobs') renderJobs();
+}
+
+// ─── CUSTOMERS ───
+function sortC(list){
+  const active=list.filter(c=>c.status!=='done');
+  const done=list.filter(c=>c.status==='done');
+  active.sort((a,b)=>(b.datein||'9999').localeCompare(a.datein||'9999'));
+  done.sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));
+  return[...active,...done];
+}
+
+function renderCustomers(){
+  const q=document.getElementById('srchInp').value.trim().toLowerCase();
+  let items=customers;
+  if(q) items=customers.filter(c=>
+    (c.name||'').toLowerCase().includes(q)||(c.phone||'').includes(q)||
+    (c.plate||'').toLowerCase().includes(q)||(c.model||'').toLowerCase().includes(q)||
+    (c.brand||'').toLowerCase().includes(q)
+  );
+  items=sortC(items);
+  document.getElementById('stat-c').textContent=customers.length;
+  document.getElementById('stat-j').textContent=jobs.filter(j=>j.status!=='done').length;
+  const el=document.getElementById('cust-list');
+  if(!items.length){
+    el.innerHTML=`<div class="empty"><div class="empty-ico">🏍️</div>${q?'ไม่พบลูกค้าที่ค้นหา':'ยังไม่มีข้อมูลลูกค้า<br>กดปุ่ม + เพิ่มลูกค้า'}</div>`;
+    return;
+  }
+  const sLabel={pending:'⏳ รอดำเนินการ',inprog:'🔧 กำลังซ่อม',done:'✅ เสร็จแล้ว'};
+  const sCls={pending:'pending',inprog:'inprog',done:'done'};
+  const dotCls={pending:'pending',inprog:'active',done:'done'};
+  el.innerHTML=items.map(c=>{
+    const hp=c.photo&&c.photo.length>10;
+    const av=hp?`<img src="${c.photo}" alt="bike">`:`<span>🏍️</span>`;
+    const no=customers.findIndex(x=>x.id===c.id)+1;
+    const cjobs=jobs.filter(j=>j.custId===c.id);
+    return`
+    <div class="cust-card" id="card-${c.id}" onclick="toggleCard('${c.id}')">
+      <div class="cch">
+        <div class="avatar">${av}</div>
+        <div class="cinfo">
+          <div class="cname"><span class="cnum">#${String(no).padStart(3,'0')}</span>${c.name}</div>
+          <div class="cphone">${c.phone||'—'}</div>
+          <div class="cbike">
+            <span class="bike-tag">🏍️ ${c.brand} ${c.model}</span>
+            ${c.plate?`<span class="plate-tag">${c.plate}</span>`:''}
+          </div>
+        </div>
+        <div class="sdot ${dotCls[c.status||'pending']}"></div>
+      </div>
+      <div class="cexp" id="exp-${c.id}">
+        ${hp?`<img class="bike-photo show" src="${c.photo}" alt="">`:''}
+        <div class="dgrid">
+          <div class="di"><div class="dl">ยี่ห้อ / รุ่น</div><div class="dv">${c.brand} ${c.model}</div></div>
+          <div class="di"><div class="dl">สี / ปี</div><div class="dv">${c.color||'—'} / ${c.year||'—'}</div></div>
+          <div class="di"><div class="dl">ทะเบียน</div><div class="dv mono">${c.plate||'—'}</div></div>
+          <div class="di"><div class="dl">สถานะ</div><div class="dv"><span class="sbadge ${sCls[c.status||'pending']}">${sLabel[c.status||'pending']}</span></div></div>
+          <div class="di"><div class="dl">วันที่รับรถ</div><div class="dv">${thDate(c.datein)}</div></div>
+          <div class="di"><div class="dl">วันที่เสร็จ</div><div class="dv">${thDate(c.dateout)}</div></div>
+        </div>
+        ${c.note?`<div style="background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text-dim);margin-bottom:11px">📝 ${c.note}</div>`:''}
+        ${cjobs.length?`<div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">📋 ใบงาน ${cjobs.length} ใบ · รวม ${fmtMoney(cjobs.reduce((s,j)=>s+jobTotal(j),0))}</div>`:''}
+        <div class="arow">
+          ${c.phone?`<button class="abtn btn-call" onclick="event.stopPropagation();window.open('tel:${c.phone}')">📞 โทร</button>`:''}
+          <button class="abtn btn-job" onclick="event.stopPropagation();openJobModal(null,'${c.id}')">📋 ใบงาน</button>
+          <button class="abtn btn-edit" onclick="event.stopPropagation();openCustModal('${c.id}')">✏️ แก้ไข</button>
+          <button class="abtn btn-del" onclick="event.stopPropagation();delCust('${c.id}')">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleCard(id){
+  document.getElementById('card-'+id).classList.toggle('expanded');
+}
+
+// ─── JOBS RENDER ───
+function jobTotal(j){
+  if(!j.items) return 0;
+  return j.items.reduce((s,it)=>s+(parseFloat(it.price)||0),0);
+}
+
+function renderJobs(){
+  const q=document.getElementById('srchInp').value.trim().toLowerCase();
+  let jlist=[...jobs].reverse();
+  if(q){
+    jlist=jlist.filter(j=>{
+      const c=customers.find(x=>x.id===j.custId);
+      return (c?.name||'').toLowerCase().includes(q)||
+        (c?.plate||'').toLowerCase().includes(q)||
+        (c?.model||'').toLowerCase().includes(q)||
+        (j.jobNo||'').includes(q);
+    });
+  }
+  document.getElementById('stat-j').textContent=jobs.filter(j=>j.status!=='done').length;
+  const el=document.getElementById('job-list');
+  if(!jlist.length){
+    el.innerHTML=`<div class="empty"><div class="empty-ico">🔧</div>${q?'ไม่พบใบงาน':'ยังไม่มีใบงาน<br>กดปุ่ม + สร้างใบงาน'}</div>`;
+    return;
+  }
+  const sCls={pending:'pending',inprog:'inprog',done:'done'};
+  const sLabel={pending:'⏳ รอดำเนินการ',inprog:'🔧 กำลังซ่อม',done:'✅ เสร็จแล้ว'};
+
+  // group by customer name header
+  let html='';
+  let lastCustId='';
+  jlist.forEach(j=>{
+    const c=customers.find(x=>x.id===j.custId);
+    if(j.custId!==lastCustId){
+      lastCustId=j.custId;
+      html+=`<div class="job-group-label">🏍️ ${c?c.name+' · '+c.brand+' '+c.model:'ลูกค้าไม่ระบุ'}</div>`;
+    }
+    const total=jobTotal(j);
+    html+=`
+    <div class="jcard">
+      <div class="jcard-top">
+        <span class="jnum">#${j.jobNo||'??'}</span>
+        <span class="jdate">${thDate(j.date)}</span>
+        <span class="sbadge ${sCls[j.status||'pending']}">${sLabel[j.status||'pending']}</span>
+      </div>
+      <div class="jitems">
+        ${(j.items||[]).map(it=>`
+          <div class="jitem-row">
+            <span class="jitem-cat">${it.cat||'—'}</span>
+            <span class="jitem-desc">${it.desc||''}</span>
+            <span class="jitem-price">${fmtMoney(parseFloat(it.price)||0)}</span>
+          </div>`).join('')}
+        <div class="jtotal-row">
+          <span class="jtotal-lbl">ยอดรวม</span>
+          <span class="jtotal-val">${fmtMoney(total)}</span>
+        </div>
+      </div>
+      ${j.note?`<div style="font-size:12px;color:var(--text-muted);margin-top:6px;padding-top:6px;border-top:1px solid var(--border)">📝 ${j.note}</div>`:''}
+      <div class="jcard-actions arow">
+        <button class="abtn btn-edit" onclick="openJobModal('${j.id}')">✏️ แก้ไข</button>
+        <button class="abtn btn-del" onclick="delJob('${j.id}')">🗑 ลบ</button>
+      </div>
+      \${j.status!=='done'?`<button class="btn-done-confirm" onclick="markJobDone('${j.id}')">✓ งานเสร็จแล้ว</button>`:''}
+    </div>`;
+  });
+  el.innerHTML=html;
+}
+
+// ─── SUMMARY ───
+function renderSummary(){
+  document.getElementById('s-c').textContent=customers.length;
+  document.getElementById('s-jd').textContent=jobs.filter(j=>j.status==='done').length;
+  document.getElementById('s-jp').textContent=jobs.filter(j=>j.status!=='done').length;
+  const rev=jobs.reduce((s,j)=>s+jobTotal(j),0);
+  document.getElementById('s-rev').textContent=fmtMoney(rev);
+
+  const brands={};
+  customers.forEach(c=>{if(c.brand)brands[c.brand]=(brands[c.brand]||0)+1;});
+  const sb=Object.entries(brands).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const mb=sb[0]?.[1]||1;
+  document.getElementById('brand-bars').innerHTML=sb.map(([b,n])=>`
+    <div class="hbar-item">
+      <div class="hbar-name"><span>${b}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--orange)">${n} คัน</span></div>
+      <div class="hbar-track"><div class="hbar-fill" style="width:${Math.round(n/mb*100)}%"></div></div>
+    </div>`).join('')||'<div style="color:var(--text-muted);font-size:13px">ยังไม่มีข้อมูล</div>';
+
+  const cats={};
+  jobs.forEach(j=>(j.items||[]).forEach(it=>{if(it.cat)cats[it.cat]=(cats[it.cat]||0)+1;}));
+  const sc=Object.entries(cats).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const mc=sc[0]?.[1]||1;
+  document.getElementById('cat-bars').innerHTML=sc.map(([c,n])=>`
+    <div class="hbar-item">
+      <div class="hbar-name"><span>${c}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--orange)">${n} ครั้ง</span></div>
+      <div class="hbar-track"><div class="hbar-fill" style="width:${Math.round(n/mc*100)}%"></div></div>
+    </div>`).join('')||'<div style="color:var(--text-muted);font-size:13px">ยังไม่มีข้อมูล</div>';
+}
+
+// ─── CHART ───
+function renderChart(){
+  const now=new Date();
+  let months=[];
+  for(let i=5;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
+    months.push(d.toISOString().substring(0,7));
+  }
+  const mL=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  const jcounts=months.map(ym=>jobs.filter(j=>j.date&&j.date.startsWith(ym)).length);
+  const revs=months.map(ym=>jobs.filter(j=>j.date&&j.date.startsWith(ym)).reduce((s,j)=>s+jobTotal(j),0));
+  const maxJ=Math.max(...jcounts,1),maxR=Math.max(...revs,1);
+  document.getElementById('month-bars').innerHTML=months.map((ym,i)=>{
+    const h=Math.round(jcounts[i]/maxJ*90);
+    const[,m]=ym.split('-');
+    return`<div class="mbg"><div class="mbar-val">${jcounts[i]||''}</div><div class="mbar" style="height:${h}px"></div><div class="mbar-lbl">${mL[parseInt(m)-1]}</div></div>`;
+  }).join('');
+  document.getElementById('rev-bars').innerHTML=months.map((ym,i)=>{
+    const h=Math.round(revs[i]/maxR*90);
+    const[,m]=ym.split('-');
+    const v=revs[i]>=1000?Math.round(revs[i]/1000)+'k':revs[i]||'';
+    return`<div class="mbg"><div class="mbar-val">${v}</div><div class="mbar" style="height:${h}px;background:linear-gradient(180deg,var(--green),#16a34a)"></div><div class="mbar-lbl">${mL[parseInt(m)-1]}</div></div>`;
+  }).join('');
+}
+
+// ─── CUSTOMER MODAL ───
+function openCustModal(id=null){
+  cEditId=id; cPhoto=''; cStatus='pending';
+  document.getElementById('cm-title').textContent=id?'แก้ไขข้อมูลลูกค้า':'เพิ่มลูกค้าใหม่';
+  document.getElementById('ce-id').value=id||'';
+  if(id){
+    const c=customers.find(x=>x.id===id);
+    document.getElementById('cf-name').value=c.name||'';
+    document.getElementById('cf-phone').value=c.phone||'';
+    document.getElementById('cf-brand').value=c.brand||'';
+    document.getElementById('cf-model').value=c.model||'';
+    document.getElementById('cf-color').value=c.color||'';
+    document.getElementById('cf-year').value=c.year||'';
+    document.getElementById('cf-plate').value=c.plate||'';
+    document.getElementById('cf-datein').value=c.datein||'';
+    document.getElementById('cf-dateout').value=c.dateout||'';
+    document.getElementById('cf-note').value=c.note||'';
+    cStatus=c.status||'pending'; cPhoto=c.photo||'';
+    const pv=document.getElementById('cf-photo-prev');
+    if(cPhoto){pv.src=cPhoto;pv.classList.add('show');document.getElementById('cf-ph-placeholder').style.display='none';}
+    else{pv.classList.remove('show');document.getElementById('cf-ph-placeholder').style.display='';}
+  } else {
+    ['cf-name','cf-phone','cf-model','cf-color','cf-year','cf-plate','cf-note'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('cf-brand').value='';
+    document.getElementById('cf-datein').value=todayStr();
+    document.getElementById('cf-dateout').value='';
+    document.getElementById('cf-photo-prev').classList.remove('show');
+    document.getElementById('cf-ph-placeholder').style.display='';
+  }
+  cUpdateStatus();
+  document.getElementById('ov-cust').classList.add('open');
+  setTimeout(()=>document.getElementById('cf-name').focus(),350);
+}
+function closeCustModal(){ document.getElementById('ov-cust').classList.remove('open'); }
+function cSelStatus(s){ cStatus=s; cUpdateStatus(); }
+function cUpdateStatus(){
+  ['pending','inprog','done'].forEach(s=>{
+    document.getElementById('copt-'+s).className='sopt'+(cStatus===s?' sel-'+s:'');
+  });
+}
+function prevPhoto(e,prevId,phId){
+  const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    const img=document.getElementById(prevId);
+    img.src=ev.target.result; img.classList.add('show');
+    document.getElementById(phId).style.display='none';
+    if(prevId==='cf-photo-prev') cPhoto=ev.target.result;
+  };
+  r.readAsDataURL(f);
+}
+function saveCust(){
+  const name=document.getElementById('cf-name').value.trim();
+  const brand=document.getElementById('cf-brand').value;
+  const model=document.getElementById('cf-model').value.trim();
+  if(!name){alert('กรุณากรอกชื่อลูกค้า');return;}
+  if(!brand||!model){alert('กรุณากรอกยี่ห้อและรุ่นรถ');return;}
+  const obj={
+    id:cEditId||genId(), name,
+    phone:document.getElementById('cf-phone').value.trim(), brand, model,
+    color:document.getElementById('cf-color').value.trim(),
+    year:document.getElementById('cf-year').value.trim(),
+    plate:document.getElementById('cf-plate').value.trim(),
+    datein:document.getElementById('cf-datein').value,
+    dateout:document.getElementById('cf-dateout').value,
+    note:document.getElementById('cf-note').value.trim(),
+    status:cStatus, photo:cPhoto, updatedAt:new Date().toISOString()
+  };
+  if(cEditId){ const i=customers.findIndex(c=>c.id===cEditId); if(i!==-1)customers[i]=obj; }
+  else customers.push(obj);
+  saveC(); closeCustModal(); renderCustomers();
+}
+function delCust(id){
+  const c=customers.find(x=>x.id===id);
+  if(!confirm(`ลบข้อมูล ${c?.name} ?`))return;
+  customers=customers.filter(x=>x.id!==id);
+  jobs=jobs.filter(j=>j.custId!==id);
+  saveC(); saveJ(); renderCustomers();
+}
+
+// ─── JOB MODAL ───
+let jItems=[];
+
+function openJobModal(id=null, custId=null){
+  jEditId=id; jPickedCust=null; jItems=[];
+  document.getElementById('jm-title').textContent=id?'แก้ไขใบงาน':'สร้างใบงาน';
+  document.getElementById('je-id').value=id||'';
+
+  if(id){
+    const j=jobs.find(x=>x.id===id);
+    jPickedCust=customers.find(c=>c.id===j.custId)||null;
+    document.getElementById('jf-custid').value=j.custId||'';
+    document.getElementById('jf-date').value=j.date||todayStr();
+    document.getElementById('jf-status').value=j.status||'pending';
+    document.getElementById('jf-note').value=j.note||'';
+    jItems=(j.items||[]).map(it=>({...it}));
+  } else {
+    document.getElementById('jf-custid').value=custId||'';
+    if(custId){ jPickedCust=customers.find(c=>c.id===custId)||null; }
+    document.getElementById('jf-date').value=todayStr();
+    document.getElementById('jf-status').value='pending';
+    document.getElementById('jf-note').value='';
+    jItems=[{cat:'ค่าแรง',desc:'',price:''}];
+  }
+
+  setCustPickLabel();
+  renderJobItems();
+  calcJTotal();
+  document.getElementById('ov-job').classList.add('open');
+}
+function closeJobModal(){ document.getElementById('ov-job').classList.remove('open'); }
+
+function setCustPickLabel(){
+  const lbl=document.getElementById('cust-pick-label');
+  if(jPickedCust) lbl.innerHTML=`<span style="color:var(--blue)">${jPickedCust.name}</span> <span style="color:var(--text-muted);font-size:11px">· ${jPickedCust.brand} ${jPickedCust.model}</span>`;
+  else lbl.textContent='เลือกลูกค้า...';
+}
+
+function toggleCustPicker(){
+  const lst=document.getElementById('cust-picker-list');
+  const btn=document.getElementById('cust-pick-btn');
+  if(lst.classList.contains('open')){lst.classList.remove('open');btn.classList.remove('active');return;}
+  lst.innerHTML=customers.map(c=>`
+    <div class="cpi" onclick="pickCust('${c.id}')">
+      ${c.name} <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--orange)">#${String(customers.findIndex(x=>x.id===c.id)+1).padStart(3,'0')}</span>
+      <div class="csub">${c.brand} ${c.model}${c.plate?' · '+c.plate:''}</div>
+    </div>`).join('')||'<div style="padding:10px 13px;color:var(--text-muted);font-size:13px">ยังไม่มีลูกค้า</div>';
+  lst.classList.add('open');
+  btn.classList.add('active');
+}
+function pickCust(id){
+  jPickedCust=customers.find(c=>c.id===id)||null;
+  document.getElementById('jf-custid').value=id;
+  document.getElementById('cust-picker-list').classList.remove('open');
+  document.getElementById('cust-pick-btn').classList.remove('active');
+  setCustPickLabel();
+}
+
+function addJobItem(){
+  jItems.push({cat:'ค่าแรง',desc:'',price:''});
+  renderJobItems();
+}
+function removeJobItem(i){
+  jItems.splice(i,1);
+  renderJobItems();
+  calcJTotal();
+}
+function renderJobItems(){
+  const el=document.getElementById('jf-items');
+  el.innerHTML=jItems.map((it,i)=>`
+    <div class="jfi">
+      <div class="jfi-row">
+        <select class="inp sel" style="flex:0 0 110px" onchange="jItems[${i}].cat=this.value">
+          ${JOB_CATS.map(c=>`<option${it.cat===c?' selected':''}>${c}</option>`).join('')}
+        </select>
+        <input class="inp" type="text" placeholder="รายละเอียด..." value="${it.desc||''}" oninput="jItems[${i}].desc=this.value">
+      </div>
+      <div class="jfi-row">
+        <input class="inp" type="number" placeholder="ราคา (บาท)" value="${it.price||''}" inputmode="numeric" oninput="jItems[${i}].price=this.value;calcJTotal()" style="font-family:'IBM Plex Mono',monospace">
+      </div>
+      ${jItems.length>1?`<div class="jfi-del" onclick="removeJobItem(${i})">✕</div>`:''}
+    </div>`).join('');
+}
+function calcJTotal(){
+  const total=jItems.reduce((s,it)=>s+(parseFloat(it.price)||0),0);
+  document.getElementById('jf-total').textContent=fmtMoney(total);
+}
+
+function saveJob(){
+  const custId=document.getElementById('jf-custid').value;
+  if(!custId){alert('กรุณาเลือกลูกค้า');return;}
+  const validItems=jItems.filter(it=>it.desc||it.price);
+  if(!validItems.length){alert('กรุณากรอกรายการงานอย่างน้อย 1 รายการ');return;}
+
+  // auto job number
+  let jobNo;
+  if(jEditId){
+    jobNo=jobs.find(x=>x.id===jEditId)?.jobNo;
+  } else {
+    const maxNo=jobs.reduce((m,j)=>Math.max(m,parseInt(j.jobNo)||0),0);
+    jobNo=String(maxNo+1).padStart(4,'0');
+  }
+
+  const obj={
+    id:jEditId||genId(), jobNo, custId,
+    date:document.getElementById('jf-date').value||todayStr(),
+    status:document.getElementById('jf-status').value,
+    items:validItems,
+    note:document.getElementById('jf-note').value.trim(),
+    updatedAt:new Date().toISOString()
+  };
+
+  if(jEditId){ const i=jobs.findIndex(j=>j.id===jEditId); if(i!==-1)jobs[i]=obj; }
+  else jobs.push(obj);
+  saveJ(); closeJobModal(); renderJobs();
+  if(curTab==='customers') renderCustomers();
+}
+function markJobDone(id){
+  const i=jobs.findIndex(j=>j.id===id);
+  if(i===-1)return;
+  jobs[i].status='done';
+  jobs[i].updatedAt=new Date().toISOString();
+  saveJ(); renderJobs();
+  if(curTab==='customers') renderCustomers();
+}
+function delJob(id){
+  if(!confirm('ลบใบงานนี้?'))return;
+  jobs=jobs.filter(j=>j.id!==id);
+  saveJ(); renderJobs();
+}
+
+// close overlays on bg click
+['ov-cust','ov-job'].forEach(id=>{
+  document.getElementById(id).addEventListener('click',e=>{
+    if(e.target===document.getElementById(id)) document.getElementById(id).classList.remove('open');
+  });
+});
+
+// ─── INIT ───
+document.getElementById('srchInp').value='';
+renderCustomers();
+</script>
+</body>
+</html>
