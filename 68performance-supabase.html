@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>68 Performance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/recharts@2.12.7/umd/Recharts.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --red: #E8341C;
+    --red-light: #FFF1EF;
+    --red-dark: #C42A14;
+    --slate-50: #F8FAFC;
+    --slate-100: #F1F5F9;
+    --slate-200: #E2E8F0;
+    --slate-300: #CBD5E1;
+    --slate-400: #94A3B8;
+    --slate-500: #64748B;
+    --slate-600: #475569;
+    --slate-700: #334155;
+    --slate-800: #1E293B;
+    --slate-900: #0F172A;
+    --white: #FFFFFF;
+    --sidebar-w: 220px;
+    --font-display: 'Bebas Neue', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.10);
+    --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+  html, body, #root { height: 100%; font-family: var(--font-body); background: var(--slate-100); color: var(--slate-800); }
+  #root { display: flex; height: 100vh; overflow: hidden; }
+
+  /* Sidebar */
+  .sidebar {
+    width: var(--sidebar-w); min-width: var(--sidebar-w);
+    background: var(--slate-900);
+    display: flex; flex-direction: column;
+    height: 100vh; overflow-y: auto;
+    z-index: 100;
+  }
+  .sidebar-logo {
+    padding: 20px 16px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .logo-img { width: 48px; height: 48px; border-radius: 8px; object-fit: cover; }
+  .logo-title { font-family: var(--font-display); font-size: 22px; color: var(--white); letter-spacing: 1px; margin-top: 8px; line-height: 1; }
+  .logo-sub { font-size: 10px; color: var(--slate-400); letter-spacing: 2px; text-transform: uppercase; margin-top: 2px; }
+  .sidebar-nav { flex: 1; padding: 12px 8px; }
+  .nav-section { font-size: 9px; color: var(--slate-500); letter-spacing: 2px; text-transform: uppercase; padding: 16px 8px 6px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: var(--radius-sm);
+    color: var(--slate-400); font-size: 13.5px; font-weight: 500;
+    cursor: pointer; transition: all 0.15s; margin-bottom: 2px;
+    border: none; background: none; width: 100%; text-align: left;
+  }
+  .nav-item:hover { background: rgba(255,255,255,0.06); color: var(--white); }
+  .nav-item.active { background: var(--red); color: var(--white); }
+  .nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+  .sidebar-bottom { padding: 12px 8px; border-top: 1px solid rgba(255,255,255,0.07); }
+  .db-status { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--radius-sm); background: rgba(255,255,255,0.04); }
+  .db-dot { width: 7px; height: 7px; border-radius: 50%; }
+  .db-dot.connected { background: #22C55E; box-shadow: 0 0 6px #22C55E; }
+  .db-dot.disconnected { background: var(--slate-500); }
+  .db-label { font-size: 11px; color: var(--slate-400); }
+
+  /* Main */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .topbar {
+    background: var(--white); border-bottom: 1px solid var(--slate-200);
+    padding: 0 24px; height: 56px; display: flex; align-items: center; justify-content: space-between;
+    flex-shrink: 0;
+  }
+  .page-title { font-size: 17px; font-weight: 600; color: var(--slate-800); }
+  .topbar-actions { display: flex; align-items: center; gap: 10px; }
+  .content { flex: 1; overflow-y: auto; padding: 24px; }
+
+  /* Cards */
+  .card {
+    background: var(--white); border-radius: var(--radius);
+    border: 1px solid var(--slate-200); box-shadow: var(--shadow-sm);
+  }
+  .card-header { padding: 16px 20px; border-bottom: 1px solid var(--slate-100); display: flex; align-items: center; justify-content: space-between; }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--slate-700); }
+  .card-body { padding: 20px; }
+
+  /* Stats */
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+  .stat-card {
+    background: var(--white); border-radius: var(--radius);
+    border: 1px solid var(--slate-200); padding: 16px 20px;
+    box-shadow: var(--shadow-sm);
+  }
+  .stat-label { font-size: 11px; color: var(--slate-400); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+  .stat-value { font-family: var(--font-display); font-size: 32px; color: var(--slate-800); margin-top: 4px; line-height: 1; }
+  .stat-sub { font-size: 12px; color: var(--slate-400); margin-top: 4px; }
+  .stat-card.accent { background: var(--red); border-color: var(--red-dark); }
+  .stat-card.accent .stat-label, .stat-card.accent .stat-sub { color: rgba(255,255,255,0.7); }
+  .stat-card.accent .stat-value { color: var(--white); }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 16px; border-radius: var(--radius-sm);
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    border: none; transition: all 0.15s; font-family: var(--font-body);
+  }
+  .btn-primary { background: var(--red); color: var(--white); }
+  .btn-primary:hover { background: var(--red-dark); }
+  .btn-secondary { background: var(--slate-100); color: var(--slate-700); border: 1px solid var(--slate-200); }
+  .btn-secondary:hover { background: var(--slate-200); }
+  .btn-ghost { background: none; color: var(--slate-500); border: 1px solid var(--slate-200); }
+  .btn-ghost:hover { background: var(--slate-50); color: var(--slate-700); }
+  .btn-danger { background: #FEE2E2; color: #DC2626; border: 1px solid #FECACA; }
+  .btn-danger:hover { background: #FECACA; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn-icon { padding: 7px; }
+
+  /* Table */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  thead th { text-align: left; padding: 10px 14px; font-size: 11px; font-weight: 600; color: var(--slate-500); text-transform: uppercase; letter-spacing: 0.8px; border-bottom: 2px solid var(--slate-100); background: var(--slate-50); }
+  tbody td { padding: 11px 14px; border-bottom: 1px solid var(--slate-100); vertical-align: middle; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: var(--slate-50); }
+
+  /* Badge */
+  .badge { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+  .badge-green { background: #DCFCE7; color: #16A34A; }
+  .badge-yellow { background: #FEF9C3; color: #CA8A04; }
+  .badge-red { background: #FEE2E2; color: #DC2626; }
+  .badge-blue { background: #DBEAFE; color: #2563EB; }
+  .badge-gray { background: var(--slate-100); color: var(--slate-600); }
+
+  /* Form */
+  .form-grid { display: grid; gap: 16px; }
+  .form-grid-2 { grid-template-columns: 1fr 1fr; }
+  .form-grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-label { font-size: 12px; font-weight: 600; color: var(--slate-600); }
+  .form-input, .form-select, .form-textarea {
+    padding: 8px 12px; border: 1.5px solid var(--slate-200); border-radius: var(--radius-sm);
+    font-size: 13.5px; font-family: var(--font-body); color: var(--slate-800);
+    background: var(--white); transition: border-color 0.15s; outline: none;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus { border-color: var(--red); box-shadow: 0 0 0 3px rgba(232,52,28,0.1); }
+  .form-textarea { resize: vertical; min-height: 80px; }
+  .form-select { cursor: pointer; }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(15,23,42,0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000; padding: 20px; backdrop-filter: blur(2px);
+  }
+  .modal {
+    background: var(--white); border-radius: 14px;
+    box-shadow: var(--shadow-lg); width: 100%; max-width: 680px;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--slate-100); display: flex; align-items: center; justify-content: space-between; }
+  .modal-title { font-size: 17px; font-weight: 700; color: var(--slate-800); }
+  .modal-body { padding: 20px 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--slate-100); display: flex; gap: 10px; justify-content: flex-end; }
+
+  /* Job items */
+  .job-item-row { display: grid; grid-template-columns: 1fr 80px 100px 90px 36px; gap: 8px; align-items: center; padding: 6px 0; }
+  .job-item-row:not(:last-child) { border-bottom: 1px solid var(--slate-100); }
+  .job-total-row { display: flex; justify-content: flex-end; gap: 24px; padding: 12px 0 0; border-top: 2px solid var(--slate-200); margin-top: 8px; }
+  .total-label { font-size: 12px; color: var(--slate-500); }
+  .total-value { font-size: 15px; font-weight: 700; color: var(--slate-800); font-family: var(--font-mono); min-width: 90px; text-align: right; }
+  .total-value.grand { color: var(--red); font-size: 18px; }
+
+  /* Config screen */
+  .config-screen {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-height: 100vh; padding: 40px; background: var(--slate-50);
+  }
+  .config-card { background: var(--white); border-radius: 16px; padding: 40px; max-width: 480px; width: 100%; box-shadow: var(--shadow-lg); border: 1px solid var(--slate-200); }
+  .config-logo { font-family: var(--font-display); font-size: 36px; color: var(--red); letter-spacing: 2px; text-align: center; margin-bottom: 6px; }
+  .config-sub { text-align: center; color: var(--slate-500); font-size: 13px; margin-bottom: 30px; }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 60px 20px; }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-title { font-size: 16px; font-weight: 600; color: var(--slate-700); margin-bottom: 6px; }
+  .empty-sub { font-size: 13px; color: var(--slate-400); margin-bottom: 20px; }
+
+  /* Loading */
+  .loading { display: flex; align-items: center; justify-content: center; padding: 60px; color: var(--slate-400); font-size: 14px; gap: 10px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner { width: 20px; height: 20px; border: 2px solid var(--slate-200); border-top-color: var(--red); border-radius: 50%; animation: spin 0.7s linear infinite; }
+
+  /* Tag */
+  .tag { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: var(--slate-100); border-radius: 4px; font-size: 11px; color: var(--slate-500); font-family: var(--font-mono); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 2px; background: var(--slate-100); padding: 3px; border-radius: 8px; }
+  .tab { padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--slate-500); border: none; background: none; font-family: var(--font-body); transition: all 0.15s; }
+  .tab.active { background: var(--white); color: var(--slate-800); box-shadow: var(--shadow-sm); font-weight: 600; }
+
+  /* Divider */
+  .divider { height: 1px; background: var(--slate-100); margin: 16px 0; }
+
+  /* Photo upload */
+  .photo-upload { width: 80px; height: 80px; border-radius: 10px; border: 2px dashed var(--slate-300); display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; background: var(--slate-50); }
+  .photo-upload img { width: 100%; height: 100%; object-fit: cover; }
+  .photo-upload:hover { border-color: var(--red); background: var(--red-light); }
+
+  /* Search */
+  .search-wrap { position: relative; }
+  .search-wrap input { padding-left: 34px; }
+  .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--slate-400); font-size: 14px; pointer-events: none; }
+
+  /* Color dot */
+  .color-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,0.1); }
+
+  /* Misc */
+  .text-mono { font-family: var(--font-mono); }
+  .text-red { color: var(--red); }
+  .text-green { color: #16A34A; }
+  .text-muted { color: var(--slate-400); }
+  .flex { display: flex; }
+  .items-center { align-items: center; }
+  .gap-2 { gap: 8px; }
+  .gap-3 { gap: 12px; }
+  .ml-auto { margin-left: auto; }
+  .mt-4 { margin-top: 16px; }
+  .mb-4 { margin-bottom: 16px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; }
+  .font-bold { font-weight: 700; }
+  .text-sm { font-size: 12px; }
+  .w-full { width: 100%; }
+  input[type="color"] { width: 36px; height: 32px; padding: 2px; border: 1.5px solid var(--slate-200); border-radius: var(--radius-sm); cursor: pointer; }
+  .drag-handle { cursor: grab; color: var(--slate-300); font-size: 14px; }
+
+  /* Alert */
+  .alert { padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 16px; }
+  .alert-warning { background: #FFFBEB; border: 1px solid #FDE68A; color: #92400E; }
+  .alert-info { background: #EFF6FF; border: 1px solid #BFDBFE; color: #1D4ED8; }
+  .alert-success { background: #F0FDF4; border: 1px solid #BBF7D0; color: #166534; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+const { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } = Recharts;
+
+// ===================== CONFIG =====================
+const SUPABASE_CONFIG_KEY = '68perf_supabase_config';
+const SHOP_LOGO = 'https://img1.pic.in.th/images/1000464399.jpg';
+
+const SUPPLIERS = [
+  'LiquiMoly','อัลฟ่าสแปร์พาท','Boat โซ่สเตอร์','WURTH','ยาง CST',
+  'TD แบตเตอรี่','Shopee','ส.อะไหล่','Triumph เชียงราย',
+  'Honda Bigwing พิษณุโลก','วิริชัย สระบุรี','เครื่องมือ','อื่นๆ'
+];
+
+const JOB_STATUSES = [
+  { value: 'pending', label: 'รอดำเนินการ', badge: 'badge-yellow' },
+  { value: 'in_progress', label: 'กำลังซ่อม', badge: 'badge-blue' },
+  { value: 'done', label: 'เสร็จแล้ว', badge: 'badge-green' },
+  { value: 'waiting_parts', label: 'รอชิ้นส่วน', badge: 'badge-red' },
+];
+
+const MONTHS_TH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+
+const formatMoney = (n) => Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// ===================== SUPABASE SETUP =====================
+let supabaseClient = null;
+
+function initSupabase(url, key) {
+  supabaseClient = supabase.createClient(url, key);
+  return supabaseClient;
+}
+
+// ===================== DB HELPERS =====================
+const db = {
+  async getCustomers() {
+    const { data, error } = await supabaseClient.from('customers').select('*').order('created_at', { ascending: false });
+    if (error) throw error; return data || [];
+  },
+  async saveCustomer(c) {
+    if (c.id) {
+      const { data, error } = await supabaseClient.from('customers').update(c).eq('id', c.id).select().single();
+      if (error) throw error; return data;
+    } else {
+      const { data, error } = await supabaseClient.from('customers').insert(c).select().single();
+      if (error) throw error; return data;
+    }
+  },
+  async deleteCustomer(id) {
+    const { error } = await supabaseClient.from('customers').delete().eq('id', id);
+    if (error) throw error;
+  },
+  async getJobs() {
+    const { data, error } = await supabaseClient.from('jobs').select('*').order('created_at', { ascending: false });
+    if (error) throw error; return data || [];
+  },
+  async saveJob(j) {
+    if (j.id) {
+      const { data, error } = await supabaseClient.from('jobs').update(j).eq('id', j.id).select().single();
+      if (error) throw error; return data;
+    } else {
+      const { data, error } = await supabaseClient.from('jobs').insert(j).select().single();
+      if (error) throw error; return data;
+    }
+  },
+  async deleteJob(id) {
+    const { error } = await supabaseClient.from('jobs').delete().eq('id', id);
+    if (error) throw error;
+  },
+  async getNextJobNumber() {
+    const { data, error } = await supabaseClient.from('jobs').select('job_number').order('job_number', { ascending: false }).limit(1);
+    if (error || !data.length) return '0001';
+    const last = parseInt(data[0].job_number || '0', 10);
+    return String(last + 1).padStart(4, '0');
+  },
+  async getExpenses() {
+    const { data, error } = await supabaseClient.from('expenses').select('*').order('date', { ascending: false });
+    if (error) throw error; return data || [];
+  },
+  async saveExpense(e) {
+    if (e.id) {
+      const { data, error } = await supabaseClient.from('expenses').update(e).eq('id', e.id).select().single();
+      if (error) throw error; return data;
+    } else {
+      const { data, error } = await supabaseClient.from('expenses').insert(e).select().single();
+      if (error) throw error; return data;
+    }
+  },
+  async deleteExpense(id) {
+    const { error } = await supabaseClient.from('expenses').delete().eq('id', id);
+    if (error) throw error;
+  },
+  async getOtherIncome() {
+    const { data, error } = await supabaseClient.from('other_income').select('*').order('date', { ascending: false });
+    if (error) throw error; return data || [];
+  },
+  async saveOtherIncome(o) {
+    if (o.id) {
+      const { data, error } = await supabaseClient.from('other_income').update(o).eq('id', o.id).select().single();
+      if (error) throw error; return data;
+    } else {
+      const { data, error } = await supabaseClient.from('other_income').insert(o).select().single();
+      if (error) throw error; return data;
+    }
+  },
+  async deleteOtherIncome(id) {
+    const { error } = await supabaseClient.from('other_income').delete().eq('id', id);
+    if (error) throw error;
+  },
+};
+
+// ===================== SQL SCRIPT =====================
+const SQL_SETUP = `-- Run this in Supabase SQL Editor
+CREATE TABLE IF NOT EXISTS customers (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  name text NOT NULL,
+  phone text,
+  bike_brand text,
+  bike_model text,
+  bike_year text,
+  license_plate text,
+  bike_color text DEFAULT '#888888',
+  bike_photo text,
+  notes text,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS jobs (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  job_number text NOT NULL,
+  customer_id uuid REFERENCES customers(id),
+  customer_name text,
+  bike_info text,
+  status text DEFAULT 'pending',
+  items jsonb DEFAULT '[]',
+  labor_total numeric DEFAULT 0,
+  parts_total numeric DEFAULT 0,
+  grand_total numeric DEFAULT 0,
+  run_date date,
+  completion_date date,
+  notes text,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS expenses (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  date date NOT NULL,
+  supplier text NOT NULL,
+  description text,
+  amount numeric NOT NULL,
+  notes text,
+  created_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS other_income (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  date date NOT NULL,
+  description text NOT NULL,
+  amount numeric NOT NULL,
+  notes text,
+  created_at timestamptz DEFAULT now()
+);`;
+
+// ===================== CONFIG SCREEN =====================
+function ConfigScreen({ onConnect }) {
+  const [url, setUrl] = useState('');
+  const [key, setKey] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [showSQL, setShowSQL] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(SUPABASE_CONFIG_KEY);
+    if (saved) {
+      try { const c = JSON.parse(saved); setUrl(c.url || ''); setKey(c.key || ''); } catch {}
+    }
+  }, []);
+
+  const handleConnect = async () => {
+    if (!url || !key) { setError('กรุณากรอก URL และ API Key'); return; }
+    setLoading(true); setError('');
+    try {
+      const client = initSupabase(url.trim(), key.trim());
+      const { error: testError } = await client.from('customers').select('id').limit(1);
+      if (testError) throw testError;
+      localStorage.setItem(SUPABASE_CONFIG_KEY, JSON.stringify({ url: url.trim(), key: key.trim() }));
+      onConnect();
+    } catch (e) {
+      setError(`เชื่อมต่อไม่ได้: ${e.message}`);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="config-screen">
+      <div className="config-card">
+        <div style={{textAlign:'center',marginBottom:20}}>
+          <img src={SHOP_LOGO} style={{width:64,height:64,borderRadius:12,objectFit:'cover',marginBottom:12}} onError={e=>e.target.style.display='none'} />
+          <div className="config-logo">68 PERFORMANCE</div>
+          <div className="config-sub">Shop Management System · เชื่อมต่อ Supabase</div>
+        </div>
+        <div className="form-grid" style={{gap:14}}>
+          <div className="form-group">
+            <label className="form-label">Supabase Project URL</label>
+            <input className="form-input" placeholder="https://xxxx.supabase.co" value={url} onChange={e=>setUrl(e.target.value)} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Anon / Public API Key</label>
+            <input className="form-input" type="password" placeholder="eyJhbGci..." value={key} onChange={e=>setKey(e.target.value)} />
+          </div>
+          {error && <div className="alert alert-warning">{error}</div>}
+          <button className="btn btn-primary w-full" onClick={handleConnect} disabled={loading}>
+            {loading ? '⏳ กำลังเชื่อมต่อ...' : '🔌 เชื่อมต่อ Supabase'}
+          </button>
+        </div>
+        <div className="divider" />
+        <div style={{fontSize:12,color:'var(--slate-500)',lineHeight:1.7}}>
+          <strong>วิธีเริ่มใช้งาน:</strong><br/>
+          1. สมัคร <a href="https://supabase.com" target="_blank" style={{color:'var(--red)'}}>supabase.com</a> (ฟรี)<br/>
+          2. สร้าง Project ใหม่<br/>
+          3. ไปที่ Settings → API → copy URL + anon key<br/>
+          4. รัน SQL script สร้าง tables ก่อน
+        </div>
+        <button className="btn btn-ghost w-full mt-4" style={{fontSize:12}} onClick={()=>setShowSQL(!showSQL)}>
+          {showSQL ? '▲ ซ่อน' : '▼ ดู'} SQL Script สำหรับสร้าง Tables
+        </button>
+        {showSQL && (
+          <pre style={{marginTop:10,background:'var(--slate-900)',color:'#A3E635',padding:16,borderRadius:8,fontSize:10.5,overflowX:'auto',lineHeight:1.6}}>
+            {SQL_SETUP}
+          </pre>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ===================== CUSTOMER MODAL =====================
+function CustomerModal({ customer, onSave, onClose }) {
+  const [form, setForm] = useState(customer || {
+    name:'', phone:'', bike_brand:'', bike_model:'', bike_year:'',
+    license_plate:'', bike_color:'#E8341C', bike_photo:'', notes:''
+  });
+  const [saving, setSaving] = useState(false);
+
+  const set = (k, v) => setForm(p => ({...p, [k]: v}));
+
+  const handleSave = async () => {
+    if (!form.name) return alert('กรุณากรอกชื่อลูกค้า');
+    setSaving(true);
+    try { await db.saveCustomer(form); onSave(); }
+    catch (e) { alert('บันทึกไม่ได้: ' + e.message); }
+    setSaving(false);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <span className="modal-title">{form.id ? 'แก้ไขลูกค้า' : 'เพิ่มลูกค้าใหม่'}</span>
+          <button className="btn btn-ghost btn-sm btn-icon" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="photo-upload" onClick={()=>document.getElementById('photo-input').click()}>
+              {form.bike_photo ? <img src={form.bike_photo} alt="" /> : <span style={{fontSize:24}}>📷</span>}
+            </div>
+            <input type="file" id="photo-input" accept="image/*" style={{display:'none'}}
+              onChange={e=>{
+                const f=e.target.files[0]; if(!f) return;
+                const r=new FileReader(); r.onload=x=>set('bike_photo',x.target.result); r.readAsDataURL(f);
+              }} />
+            <div>
+              <div style={{fontSize:12,color:'var(--slate-500)'}}>รูปภาพรถ</div>
+              <div style={{fontSize:11,color:'var(--slate-400)'}}>คลิกเพื่ออัปโหลด</div>
+            </div>
+          </div>
+          <div className="form-grid form-grid-2">
+            <div className="form-group">
+              <label className="form-label">ชื่อลูกค้า *</label>
+              <input className="form-input" value={form.name} onChange={e=>set('name',e.target.value)} placeholder="ชื่อ-นามสกุล" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">เบอร์โทร</label>
+              <input className="form-input" value={form.phone||''} onChange={e=>set('phone',e.target.value)} placeholder="08x-xxx-xxxx" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">ยี่ห้อรถ</label>
+              <input className="form-input" value={form.bike_brand||''} onChange={e=>set('bike_brand',e.target.value)} placeholder="Ducati / Honda / KTM..." />
+            </div>
+            <div className="form-group">
+              <label className="form-label">รุ่นรถ</label>
+              <input className="form-input" value={form.bike_model||''} onChange={e=>set('bike_model',e.target.value)} placeholder="Monster 796..." />
+            </div>
+            <div className="form-group">
+              <label className="form-label">ปีรถ</label>
+              <input className="form-input" value={form.bike_year||''} onChange={e=>set('bike_year',e.target.value)} placeholder="2019" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">ทะเบียน</label>
+              <input className="form-input" value={form.license_plate||''} onChange={e=>set('license_plate',e.target.value)} placeholder="กข 1234" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">สีรถ</label>
+              <div className="flex items-center gap-2">
+                <input type="color" value={form.bike_color||'#888888'} onChange={e=>set('bike_color',e.target.value)} />
+                <input className="form-input" style={{flex:1}} value={form.bike_color||''} onChange={e=>set('bike_color',e.target.value)} placeholder="#E8341C" />
+              </div>
+            </div>
+          </div>
+          <div className="form-group mt-4">
+            <label className="form-label">หมายเหตุ</label>
+            <textarea className="form-textarea" value={form.notes||''} onChange={e=>set('notes',e.target.value)} placeholder="บันทึกเพิ่มเติม..." />
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>ยกเลิก</button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving?'⏳ กำลังบันทึก...':'💾 บันทึก'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===================== JOB MODAL =====================
+function JobModal({ job, customers, onSave, onClose }) {
+  const blankItem = () => ({ id: Date.now(), desc: '', type: 'labor', qty: 1, price: 0 });
+  const [form, setForm] = useState(job || {
+    job_number: '', customer_id: '', customer_name: '', bike_info: '',
+    status: 'pending', items: [blankItem()],
+    run_date: new Date().toISOString().split('T')[0], completion_date: '', notes: ''
+  });
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (!job) {
+      db.getNextJobNumber().then(n => setForm(p => ({...p, job_number: n})));
+    }
+  }, []);
+
+  const set = (k, v) => setForm(p => ({...p, [k]: v}));
+  const setItem = (idx, k, v) => {
+    const items = [...form.items];
+    items[idx] = {...items[idx], [k]: v};
+    setForm(p => ({...p, items}));
+  };
+  const addItem = () => setForm(p => ({...p, items: [...p.items, blankItem()]}));
+  const removeItem = (idx) => setForm(p => ({...p, items: p.items.filter((_,i)=>i!==idx)}));
+
+  const laborTotal = form.items.filter(i=>i.type==='labor').reduce((s,i)=>s+(parseFloat(i.price||0)*parseFloat(i.qty||1)),0);
+  const partsTotal = form.items.filter(i=>i.type==='parts').reduce((s,i)=>s+(parseFloat(i.price||0)*parseFloat(i.qty||1)),0);
+  const grandTotal = laborTotal + partsTotal;
+
+  const handleCustomerSelect = (cid) => {
+    const c = customers.find(x=>x.id===cid);
+    if (c) {
+      set('customer_id', cid);
+      set('customer_name', c.name);
+      set('bike_info', [c.bike_brand, c.bike_model, c.license_plate].filter(Boolean).join(' '));
+    }
+  };
+
+  const handleSave = async () => {
+    if (!form.customer_name) return alert('กรุณาเลือกหรือกรอกชื่อลูกค้า');
+    setSaving(true);
+    try {
+      await db.saveJob({...form, labor_total: laborTotal, parts_total: partsTotal, grand_total: grandTotal});
+      onSave();
+    } catch (e) { alert('บันทึกไม่ได้: ' + e.message); }
+    setSaving(false);
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal" style={{maxWidth:760}}>
+        <div className="modal-header">
+          <span className="modal-title">{form.id?`แก้ไขใบงาน #${form.job_number}`:`ใบงานใหม่ #${form.job_number}`}</span>
+          <button className="btn btn-ghost btn-sm btn-icon" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid form-grid-2 mb-4">
+            <div className="form-group">
+              <label className="form-label">ลูกค้า</label>
+              <select className="form-select" value={form.customer_id||''} onChange={e=>handleCustomerSelect(e.target.value)}>
+                <option value="">-- เลือกลูกค้า --</option>
+                {customers.map(c=><option key={c.id} value={c.id}>{c.name} ({c.bike_brand} {c.bike_model})</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">ชื่อลูกค้า (กรอกเองได้)</label>
+              <input className="form-input" value={form.customer_name||''} onChange={e=>set('customer_name',e.target.value)} placeholder="หรือพิมพ์ชื่อโดยตรง" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">ข้อมูลรถ</label>
+              <input className="form-input" value={form.bike_info||''} onChange={e=>set('bike_info',e.target.value)} placeholder="Ducati Monster 796 กข 1234" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">สถานะ</label>
+              <select className="form-select" value={form.status} onChange={e=>set('status',e.target.value)}>
+                {JOB_STATUSES.map(s=><option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">วันที่รับรถ</label>
+              <input className="form-input" type="date" value={form.run_date||''} onChange={e=>set('run_date',e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">วันที่ส่งรถ</label>
+              <input className="form-input" type="date" value={form.completion_date||''} onChange={e=>set('completion_date',e.target.value)} />
+            </div>
+          </div>
+
+          <div style={{fontWeight:700,fontSize:14,color:'var(--slate-700)',marginBottom:10}}>รายการงาน</div>
+          <div style={{background:'var(--slate-50)',borderRadius:8,padding:'10px 12px',border:'1px solid var(--slate-200)'}}>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 80px 100px 90px 36px',gap:8,paddingBottom:8,borderBottom:'1px solid var(--slate-200)',marginBottom:6}}>
+              {['รายการ','ประเภท','จำนวน','ราคา',''].map((h,i)=><span key={i} style={{fontSize:11,fontWeight:600,color:'var(--slate-500)',textTransform:'uppercase',letterSpacing:0.8}}>{h}</span>)}
+            </div>
+            {form.items.map((item, idx) => (
+              <div key={item.id} className="job-item-row">
+                <input className="form-input" style={{fontSize:13}} value={item.desc} onChange={e=>setItem(idx,'desc',e.target.value)} placeholder="รายละเอียด..." />
+                <select className="form-select" style={{fontSize:12,padding:'6px 8px'}} value={item.type} onChange={e=>setItem(idx,'type',e.target.value)}>
+                  <option value="labor">แรงงาน</option>
+                  <option value="parts">ชิ้นส่วน</option>
+                </select>
+                <input className="form-input" type="number" style={{fontSize:13}} value={item.qty} onChange={e=>setItem(idx,'qty',e.target.value)} min="1" step="0.5" />
+                <input className="form-input" type="number" style={{fontSize:13}} value={item.price} onChange={e=>setItem(idx,'price',e.target.value)} min="0" />
+                <button className="btn btn-danger btn-sm btn-icon" onClick={()=>removeItem(idx)}>✕</button>
+              </div>
+            ))}
+            <button className="btn btn-ghost btn-sm mt-4" onClick={addItem}>+ เพิ่มรายการ</button>
+            <div className="job-total-row">
+              <div><div className="total-label">แรงงาน</div><div className="total-value">{formatMoney(laborTotal)}</div></div>
+              <div><div className="total-label">ชิ้นส่วน</div><div className="total-value">{formatMoney(partsTotal)}</div></div>
+              <div><div className="total-label">รวมทั้งหมด</div><div className="total-value grand">{formatMoney(grandTotal)}</div></div>
+            </div>
+          </div>
+
+          <div className="form-group mt-4">
+            <label className="form-label">หมายเหตุ</label>
+            <textarea className="form-textarea" value={form.notes||''} onChange={e=>set('notes',e.target.value)} placeholder="บันทึกเพิ่มเติม..." style={{minHeight:60}} />
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>ยกเลิก</button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving?'⏳ กำลังบันทึก...':'💾 บันทึก'}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===================== EXPENSE MODAL =====================
+function ExpenseModal({ expense, onSave, onClose }) {
+  const [form, setForm] = useState(expense || {
+    date: new Date().toISOString().split('T')[0],
+    supplier: SUPPLIERS[0], description: '', amount: '', notes: ''
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (k,v) => setForm(p=>({...p,[k]:v}));
+  const handleSave = async () => {
+    if (!form.amount) return alert('กรุณากรอกจำนวนเงิน');
+    setSaving(true);
+    try { await db.saveExpense({...form, amount: parseFloat(form.amount)}); onSave(); }
+    catch(e) { alert('บันทึกไม่ได้: ' + e.message); }
+    setSaving(false);
+  };
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal" style={{maxWidth:480}}>
+        <div className="modal-header">
+          <span className="modal-title">{form.id?'แก้ไขรายจ่าย':'เพิ่มรายจ่าย'}</span>
+          <button className="btn btn-ghost btn-sm btn-icon" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid">
+            <div className="form-group">
+              <label className="form-label">วันที่</label>
+              <input className="form-input" type="date" value={form.date} onChange={e=>set('date',e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">ผู้จัดจำหน่าย</label>
+              <select className="form-select" value={form.supplier} onChange={e=>set('supplier',e.target.value)}>
+                {SUPPLIERS.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="form-group">
+              <label className="form-label">รายละเอียด</label>
+              <input className="form-input" value={form.description||''} onChange={e=>set('description',e.target.value)} placeholder="รายละเอียดการซื้อ..." />
+            </div>
+            <div className="form-group">
+              <label className="form-label">จำนวนเงิน (บาท)</label>
+              <input className="form-input" type="number" value={form.amount} onChange={e=>set('amount',e.target.value)} min="0" step="0.01" placeholder="0.00" />
+            </div>
+            <div className="form-group">
+              <label className="form-label">หมายเหตุ</label>
+              <input className="form-input" value={form.notes||''} onChange={e=>set('notes',e.target.value)} />
+            </div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>ยกเลิก</button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving?'⏳':'💾'} บันทึก</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===================== OTHER INCOME MODAL =====================
+function OtherIncomeModal({ income, onSave, onClose }) {
+  const [form, setForm] = useState(income || {
+    date: new Date().toISOString().split('T')[0], description: '', amount: '', notes: ''
+  });
+  const [saving, setSaving] = useState(false);
+  const set = (k,v) => setForm(p=>({...p,[k]:v}));
+  const handleSave = async () => {
+    if (!form.description || !form.amount) return alert('กรุณากรอกข้อมูลให้ครบ');
+    setSaving(true);
+    try { await db.saveOtherIncome({...form, amount: parseFloat(form.amount)}); onSave(); }
+    catch(e) { alert('บันทึกไม่ได้: ' + e.message); }
+    setSaving(false);
+  };
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal" style={{maxWidth:420}}>
+        <div className="modal-header">
+          <span className="modal-title">{form.id?'แก้ไขรายรับอื่น':'เพิ่มรายรับอื่นๆ'}</span>
+          <button className="btn btn-ghost btn-sm btn-icon" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid">
+            <div className="form-group"><label className="form-label">วันที่</label><input className="form-input" type="date" value={form.date} onChange={e=>set('date',e.target.value)} /></div>
+            <div className="form-group"><label className="form-label">รายละเอียด</label><input className="form-input" value={form.description} onChange={e=>set('description',e.target.value)} placeholder="รายได้จาก..." /></div>
+            <div className="form-group"><label className="form-label">จำนวนเงิน (บาท)</label><input className="form-input" type="number" value={form.amount} onChange={e=>set('amount',e.target.value)} min="0" step="0.01" /></div>
+            <div className="form-group"><label className="form-label">หมายเหตุ</label><input className="form-input" value={form.notes||''} onChange={e=>set('notes',e.target.value)} /></div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>ยกเลิก</button>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving?'⏳':'💾'} บันทึก</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===================== PAGES =====================
+function DashboardPage({ jobs, expenses, otherIncome, customers }) {
+  const now = new Date();
+  const monthJobs = jobs.filter(j => {
+    const d = new Date(j.created_at); return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+  });
+  const monthExp = expenses.filter(e => { const d=new Date(e.date); return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear(); });
+  const monthInc = otherIncome.filter(i => { const d=new Date(i.date); return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear(); });
+
+  const jobIncome = monthJobs.reduce((s,j)=>s+(j.grand_total||0),0);
+  const otherIncTotal = monthInc.reduce((s,i)=>s+(i.amount||0),0);
+  const totalIncome = jobIncome + otherIncTotal;
+  const totalExpense = monthExp.reduce((s,e)=>s+(e.amount||0),0);
+  const netProfit = totalIncome - totalExpense;
+
+  // Last 6 months chart
+  const chartData = Array.from({length:6},(_,i)=>{
+    const d = new Date(now.getFullYear(), now.getMonth()-5+i, 1);
+    const m = d.getMonth(); const y = d.getFullYear();
+    const inc = jobs.filter(j=>{const dd=new Date(j.created_at);return dd.getMonth()===m&&dd.getFullYear()===y;}).reduce((s,j)=>s+(j.grand_total||0),0)
+               + otherIncome.filter(oi=>{const dd=new Date(oi.date);return dd.getMonth()===m&&dd.getFullYear()===y;}).reduce((s,oi)=>s+(oi.amount||0),0);
+    const exp = expenses.filter(e=>{const dd=new Date(e.date);return dd.getMonth()===m&&dd.getFullYear()===y;}).reduce((s,e)=>s+(e.amount||0),0);
+    return { name: MONTHS_TH[m], รายรับ: Math.round(inc), รายจ่าย: Math.round(exp) };
+  });
+
+  const pendingJobs = jobs.filter(j=>j.status==='pending'||j.status==='in_progress');
+
+  return (
+    <div>
+      <div className="stats-grid">
+        <div className="stat-card accent">
+          <div className="stat-label">รายรับเดือนนี้</div>
+          <div className="stat-value">฿{formatMoney(totalIncome)}</div>
+          <div className="stat-sub">{MONTHS_TH[now.getMonth()]} {now.getFullYear()+543}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">รายจ่ายเดือนนี้</div>
+          <div className="stat-value">฿{formatMoney(totalExpense)}</div>
+          <div className="stat-sub">รายจ่ายทั้งหมด</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">กำไรสุทธิ</div>
+          <div className="stat-value" style={{color:netProfit>=0?'#16A34A':'#DC2626'}}>฿{formatMoney(netProfit)}</div>
+          <div className="stat-sub">{netProfit>=0?'กำไร':'ขาดทุน'}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-label">ใบงานค้างอยู่</div>
+          <div className="stat-value">{pendingJobs.length}</div>
+          <div className="stat-sub">รอ / กำลังซ่อม</div>
+        </div>
+      </div>
+
+      <div className="grid-2">
+        <div className="card">
+          <div className="card-header"><span className="card-title">📊 รายรับ-รายจ่าย 6 เดือนล่าสุด</span></div>
+          <div className="card-body" style={{height:240}}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData} barSize={18}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+                <XAxis dataKey="name" tick={{fontSize:11}} />
+                <YAxis tick={{fontSize:11}} tickFormatter={v=>`฿${(v/1000).toFixed(0)}k`} />
+                <Tooltip formatter={v=>`฿${formatMoney(v)}`} />
+                <Legend />
+                <Bar dataKey="รายรับ" fill="#E8341C" radius={[4,4,0,0]} />
+                <Bar dataKey="รายจ่าย" fill="#94A3B8" radius={[4,4,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        <div className="card">
+          <div className="card-header"><span className="card-title">🔧 ใบงานค้าง ({pendingJobs.length})</span></div>
+          <div style={{maxHeight:280,overflowY:'auto'}}>
+            {pendingJobs.length===0 ? (
+              <div className="empty-state" style={{padding:'30px 20px'}}>
+                <div className="empty-icon">✅</div>
+                <div className="empty-title">ไม่มีใบงานค้าง</div>
+              </div>
+            ) : pendingJobs.slice(0,8).map(j=>{
+              const st = JOB_STATUSES.find(s=>s.value===j.status);
+              return (
+                <div key={j.id} style={{display:'flex',alignItems:'center',padding:'10px 16px',borderBottom:'1px solid var(--slate-100)',gap:10}}>
+                  <span className="tag">#{j.job_number}</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontSize:13,fontWeight:600}}>{j.customer_name}</div>
+                    <div style={{fontSize:11,color:'var(--slate-400)'}}>{j.bike_info}</div>
+                  </div>
+                  <span className={`badge ${st?.badge||'badge-gray'}`}>{st?.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      <div className="card mt-4">
+        <div className="card-header"><span className="card-title">💳 รายจ่ายตามผู้จัดจำหน่าย (เดือนนี้)</span></div>
+        <div className="card-body" style={{height:220}}>
+          {(() => {
+            const grouped = {};
+            monthExp.forEach(e=>{ grouped[e.supplier]=(grouped[e.supplier]||0)+e.amount; });
+            const pieData = Object.entries(grouped).map(([name,value])=>({name,value:Math.round(value)})).sort((a,b)=>b.value-a.value);
+            const COLORS = ['#E8341C','#F97316','#EAB308','#22C55E','#3B82F6','#8B5CF6','#EC4899','#14B8A6','#64748B','#A78BFA','#F472B6','#6EE7B7'];
+            if(!pieData.length) return <div className="empty-state" style={{padding:'20px'}}><div className="text-muted">ยังไม่มีข้อมูล</div></div>;
+            return (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={pieData} cx="40%" cy="50%" outerRadius={90} dataKey="value" label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`} labelLine={false} fontSize={10}>
+                    {pieData.map((_,i)=><Cell key={i} fill={COLORS[i%COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={v=>`฿${formatMoney(v)}`} />
+                </PieChart>
+              </ResponsiveContainer>
+            );
+          })()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CustomersPage({ customers, onRefresh }) {
+  const [modal, setModal] = useState(null);
+  const [search, setSearch] = useState('');
+
+  const filtered = customers.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    (c.bike_brand||'').toLowerCase().includes(search.toLowerCase()) ||
+    (c.license_plate||'').toLowerCase().includes(search.toLowerCase())
+  );
+
+  const handleDelete = async (c) => {
+    if (!confirm(`ลบลูกค้า "${c.name}" ออก?`)) return;
+    try { await db.deleteCustomer(c.id); onRefresh(); } catch(e) { alert(e.message); }
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="search-wrap" style={{flex:1}}>
+          <span className="search-icon">🔍</span>
+          <input className="form-input" placeholder="ค้นหาลูกค้า ยี่ห้อรถ ทะเบียน..." value={search} onChange={e=>setSearch(e.target.value)} style={{paddingLeft:34}} />
+        </div>
+        <button className="btn btn-primary" onClick={()=>setModal({})}>+ เพิ่มลูกค้า</button>
+      </div>
+      <div className="card">
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>ลูกค้า</th><th>รถ</th><th>ทะเบียน</th><th>เบอร์โทร</th><th>สีรถ</th><th></th></tr></thead>
+            <tbody>
+              {filtered.length===0 && <tr><td colSpan={6}><div className="empty-state"><div className="empty-icon">👤</div><div className="empty-title">ยังไม่มีลูกค้า</div></div></td></tr>}
+              {filtered.map(c=>(
+                <tr key={c.id}>
+                  <td>
+                    <div className="flex items-center gap-2">
+                      {c.bike_photo && <img src={c.bike_photo} style={{width:32,height:32,borderRadius:6,objectFit:'cover'}} />}
+                      <strong>{c.name}</strong>
+                    </div>
+                  </td>
+                  <td><span style={{fontSize:13}}>{[c.bike_brand,c.bike_model,c.bike_year].filter(Boolean).join(' ')}</span></td>
+                  <td><span className="tag">{c.license_plate||'-'}</span></td>
+                  <td style={{color:'var(--slate-500)',fontSize:13}}>{c.phone||'-'}</td>
+                  <td><div className="flex items-center gap-2"><span className="color-dot" style={{background:c.bike_color||'#888'}} /><span style={{fontSize:11,color:'var(--slate-500)'}}>{c.bike_color||'-'}</span></div></td>
+                  <td>
+                    <div className="flex gap-2">
+                      <button className="btn btn-ghost btn-sm" onClick={()=>setModal(c)}>✏️</button>
+                      <button className="btn btn-danger btn-sm" onClick={()=>handleDelete(c)}>🗑️</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {modal!==null && <CustomerModal customer={modal.id?modal:null} onSave={()=>{setModal(null);onRefresh();}} onClose={()=>setModal(null)} />}
+    </div>
+  );
+}
+
+function JobsPage({ jobs, customers, onRefresh }) {
+  const [modal, setModal] = useState(null);
+  const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+
+  const filtered = jobs.filter(j=>{
+    const matchSearch = j.customer_name?.toLowerCase().includes(search.toLowerCase()) || j.job_number?.includes(search) || (j.bike_info||'').toLowerCase().includes(search.toLowerCase());
+    const matchStatus = filterStatus==='all' || j.status===filterStatus;
+    return matchSearch && matchStatus;
+  });
+
+  const handleDelete = async (j) => {
+    if (!confirm(`ลบใบงาน #${j.job_number}?`)) return;
+    try { await db.deleteJob(j.id); onRefresh(); } catch(e) { alert(e.message); }
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-4" style={{flexWrap:'wrap'}}>
+        <div className="search-wrap" style={{flex:1,minWidth:200}}>
+          <span className="search-icon">🔍</span>
+          <input className="form-input" placeholder="ค้นหาใบงาน ชื่อลูกค้า เลขใบงาน..." value={search} onChange={e=>setSearch(e.target.value)} style={{paddingLeft:34}} />
+        </div>
+        <div className="tabs">
+          {[{v:'all',l:'ทั้งหมด'},...JOB_STATUSES.map(s=>({v:s.value,l:s.label}))].map(({v,l})=>(
+            <button key={v} className={`tab ${filterStatus===v?'active':''}`} onClick={()=>setFilterStatus(v)}>{l}</button>
+          ))}
+        </div>
+        <button className="btn btn-primary" onClick={()=>setModal({})}>+ ใบงานใหม่</button>
+      </div>
+      <div className="card">
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>เลขที่</th><th>ลูกค้า</th><th>รถ</th><th>สถานะ</th><th>วันรับ</th><th>มูลค่า</th><th></th></tr></thead>
+            <tbody>
+              {filtered.length===0 && <tr><td colSpan={7}><div className="empty-state"><div className="empty-icon">🔧</div><div className="empty-title">ไม่มีใบงาน</div></div></td></tr>}
+              {filtered.map(j=>{
+                const st = JOB_STATUSES.find(s=>s.value===j.status);
+                return (
+                  <tr key={j.id}>
+                    <td><span className="tag text-mono">#{j.job_number}</span></td>
+                    <td><strong>{j.customer_name}</strong></td>
+                    <td style={{fontSize:12,color:'var(--slate-500)'}}>{j.bike_info}</td>
+                    <td><span className={`badge ${st?.badge||'badge-gray'}`}>{st?.label}</span></td>
+                    <td style={{fontSize:12,color:'var(--slate-500)'}}>{j.run_date||'-'}</td>
+                    <td><span className="text-mono font-bold text-red">฿{formatMoney(j.grand_total)}</span></td>
+                    <td>
+                      <div className="flex gap-2">
+                        <button className="btn btn-ghost btn-sm" onClick={()=>setModal(j)}>✏️</button>
+                        <button className="btn btn-danger btn-sm" onClick={()=>handleDelete(j)}>🗑️</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {modal!==null && <JobModal job={modal.id?modal:null} customers={customers} onSave={()=>{setModal(null);onRefresh();}} onClose={()=>setModal(null)} />}
+    </div>
+  );
+}
+
+function ExpensesPage({ expenses, otherIncome, onRefresh }) {
+  const [tab, setTab] = useState('expense');
+  const [modal, setModal] = useState(null);
+  const [incModal, setIncModal] = useState(null);
+  const [monthFilter, setMonthFilter] = useState(new Date().getMonth());
+  const [yearFilter, setYearFilter] = useState(new Date().getFullYear());
+
+  const filteredExp = expenses.filter(e=>{
+    const d=new Date(e.date); return d.getMonth()===monthFilter&&d.getFullYear()===yearFilter;
+  });
+  const filteredInc = otherIncome.filter(i=>{
+    const d=new Date(i.date); return d.getMonth()===monthFilter&&d.getFullYear()===yearFilter;
+  });
+
+  const totalExp = filteredExp.reduce((s,e)=>s+e.amount,0);
+  const totalInc = filteredInc.reduce((s,i)=>s+i.amount,0);
+
+  const handleDeleteExp = async (e) => {
+    if (!confirm('ลบรายจ่ายนี้?')) return;
+    try { await db.deleteExpense(e.id); onRefresh(); } catch(err) { alert(err.message); }
+  };
+  const handleDeleteInc = async (i) => {
+    if (!confirm('ลบรายรับนี้?')) return;
+    try { await db.deleteOtherIncome(i.id); onRefresh(); } catch(err) { alert(err.message); }
+  };
+
+  const years = [yearFilter-1, yearFilter, yearFilter+1];
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-4" style={{flexWrap:'wrap'}}>
+        <div className="tabs">
+          <button className={`tab ${tab==='expense'?'active':''}`} onClick={()=>setTab('expense')}>💸 รายจ่าย</button>
+          <button className={`tab ${tab==='income'?'active':''}`} onClick={()=>setTab('income')}>💰 รายรับอื่นๆ</button>
+        </div>
+        <div className="flex gap-2 ml-auto items-center">
+          <select className="form-select" style={{width:80,padding:'6px 8px',fontSize:12}} value={monthFilter} onChange={e=>setMonthFilter(+e.target.value)}>
+            {MONTHS_TH.map((m,i)=><option key={i} value={i}>{m}</option>)}
+          </select>
+          <select className="form-select" style={{width:75,padding:'6px 8px',fontSize:12}} value={yearFilter} onChange={e=>setYearFilter(+e.target.value)}>
+            {years.map(y=><option key={y} value={y}>{y+543}</option>)}
+          </select>
+          {tab==='expense'
+            ? <button className="btn btn-primary" onClick={()=>setModal({})}>+ เพิ่มรายจ่าย</button>
+            : <button className="btn btn-primary" onClick={()=>setIncModal({})}>+ เพิ่มรายรับ</button>
+          }
+        </div>
+      </div>
+
+      {tab==='expense' && (
+        <>
+          <div className="flex gap-3 mb-4">
+            <div className="stat-card" style={{flex:1,padding:'12px 16px'}}><div className="stat-label">รายจ่ายเดือนนี้</div><div className="stat-value" style={{fontSize:24}}>฿{formatMoney(totalExp)}</div></div>
+          </div>
+          <div className="card">
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>วันที่</th><th>ผู้จัดจำหน่าย</th><th>รายละเอียด</th><th>จำนวนเงิน</th><th></th></tr></thead>
+                <tbody>
+                  {filteredExp.length===0 && <tr><td colSpan={5}><div className="empty-state" style={{padding:'30px'}}><div className="empty-icon">💸</div><div className="empty-title">ไม่มีรายจ่าย</div></div></td></tr>}
+                  {filteredExp.map(e=>(
+                    <tr key={e.id}>
+                      <td style={{fontSize:12,color:'var(--slate-500)'}}>{e.date}</td>
+                      <td><span className="badge badge-gray">{e.supplier}</span></td>
+                      <td style={{fontSize:13}}>{e.description||'-'}</td>
+                      <td><span className="text-mono font-bold" style={{color:'#DC2626'}}>฿{formatMoney(e.amount)}</span></td>
+                      <td><div className="flex gap-2">
+                        <button className="btn btn-ghost btn-sm" onClick={()=>setModal(e)}>✏️</button>
+                        <button className="btn btn-danger btn-sm" onClick={()=>handleDeleteExp(e)}>🗑️</button>
+                      </div></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {tab==='income' && (
+        <>
+          <div className="flex gap-3 mb-4">
+            <div className="stat-card" style={{flex:1,padding:'12px 16px'}}><div className="stat-label">รายรับอื่นๆ เดือนนี้</div><div className="stat-value" style={{fontSize:24}}>฿{formatMoney(totalInc)}</div></div>
+          </div>
+          <div className="card">
+            <div className="table-wrap">
+              <table>
+                <thead><tr><th>วันที่</th><th>รายละเอียด</th><th>จำนวนเงิน</th><th>หมายเหตุ</th><th></th></tr></thead>
+                <tbody>
+                  {filteredInc.length===0 && <tr><td colSpan={5}><div className="empty-state" style={{padding:'30px'}}><div className="empty-icon">💰</div><div className="empty-title">ไม่มีรายรับอื่น</div></div></td></tr>}
+                  {filteredInc.map(i=>(
+                    <tr key={i.id}>
+                      <td style={{fontSize:12,color:'var(--slate-500)'}}>{i.date}</td>
+                      <td style={{fontSize:13,fontWeight:500}}>{i.description}</td>
+                      <td><span className="text-mono font-bold text-green">฿{formatMoney(i.amount)}</span></td>
+                      <td style={{fontSize:12,color:'var(--slate-400)'}}>{i.notes||'-'}</td>
+                      <td><div className="flex gap-2">
+                        <button className="btn btn-ghost btn-sm" onClick={()=>setIncModal(i)}>✏️</button>
+                        <button className="btn btn-danger btn-sm" onClick={()=>handleDeleteInc(i)}>🗑️</button>
+                      </div></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {modal!==null && <ExpenseModal expense={modal.id?modal:null} onSave={()=>{setModal(null);onRefresh();}} onClose={()=>setModal(null)} />}
+      {incModal!==null && <OtherIncomeModal income={incModal.id?incModal:null} onSave={()=>{setIncModal(null);onRefresh();}} onClose={()=>setIncModal(null)} />}
+    </div>
+  );
+}
+
+function ReportPage({ jobs, expenses, otherIncome }) {
+  const [year, setYear] = useState(new Date().getFullYear());
+  const monthlyData = Array.from({length:12},(_,m)=>{
+    const jobInc = jobs.filter(j=>{const d=new Date(j.created_at);return d.getMonth()===m&&d.getFullYear()===year;}).reduce((s,j)=>s+(j.grand_total||0),0);
+    const othInc = otherIncome.filter(i=>{const d=new Date(i.date);return d.getMonth()===m&&d.getFullYear()===year;}).reduce((s,i)=>s+(i.amount||0),0);
+    const exp = expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===m&&d.getFullYear()===year;}).reduce((s,e)=>s+(e.amount||0),0);
+    const inc = jobInc+othInc;
+    return { name: MONTHS_TH[m], รายรับ: Math.round(inc), รายจ่าย: Math.round(exp), กำไร: Math.round(inc-exp) };
+  });
+  const yearTotal = monthlyData.reduce((s,m)=>({inc:s.inc+m.รายรับ,exp:s.exp+m.รายจ่าย,profit:s.profit+m.กำไร}),{inc:0,exp:0,profit:0});
+
+  return (
+    <div>
+      <div className="flex items-center gap-3 mb-4">
+        <span style={{fontWeight:600,color:'var(--slate-600)'}}>ปี</span>
+        <select className="form-select" style={{width:90}} value={year} onChange={e=>setYear(+e.target.value)}>
+          {[year-1,year,year+1].map(y=><option key={y} value={y}>{y+543}</option>)}
+        </select>
+      </div>
+      <div className="stats-grid mb-4">
+        <div className="stat-card accent"><div className="stat-label">รายรับรวมปี</div><div className="stat-value">฿{formatMoney(yearTotal.inc)}</div></div>
+        <div className="stat-card"><div className="stat-label">รายจ่ายรวมปี</div><div className="stat-value">฿{formatMoney(yearTotal.exp)}</div></div>
+        <div className="stat-card"><div className="stat-label">กำไรสุทธิ</div><div className="stat-value" style={{color:yearTotal.profit>=0?'#16A34A':'#DC2626'}}>฿{formatMoney(yearTotal.profit)}</div></div>
+        <div className="stat-card"><div className="stat-label">อัตรากำไร</div><div className="stat-value">{yearTotal.inc>0?((yearTotal.profit/yearTotal.inc)*100).toFixed(1):0}%</div></div>
+      </div>
+      <div className="card mb-4">
+        <div className="card-header"><span className="card-title">📈 ภาพรวมรายเดือน {year+543}</span></div>
+        <div className="card-body" style={{height:280}}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={monthlyData} barSize={16}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F1F5F9" />
+              <XAxis dataKey="name" tick={{fontSize:11}} />
+              <YAxis tick={{fontSize:11}} tickFormatter={v=>`฿${(v/1000).toFixed(0)}k`} />
+              <Tooltip formatter={v=>`฿${formatMoney(v)}`} />
+              <Legend />
+              <Bar dataKey="รายรับ" fill="#E8341C" radius={[4,4,0,0]} />
+              <Bar dataKey="รายจ่าย" fill="#94A3B8" radius={[4,4,0,0]} />
+              <Bar dataKey="กำไร" fill="#22C55E" radius={[4,4,0,0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      <div className="card">
+        <div className="card-header"><span className="card-title">📋 ตารางสรุปรายเดือน</span></div>
+        <div className="table-wrap">
+          <table>
+            <thead><tr><th>เดือน</th><th>รายรับ</th><th>รายจ่าย</th><th>กำไรสุทธิ</th><th>อัตรากำไร</th></tr></thead>
+            <tbody>
+              {monthlyData.map((m,i)=>(
+                <tr key={i}>
+                  <td style={{fontWeight:600}}>{m.name} {year+543}</td>
+                  <td><span className="text-mono">฿{formatMoney(m.รายรับ)}</span></td>
+                  <td><span className="text-mono">฿{formatMoney(m.รายจ่าย)}</span></td>
+                  <td><span className="text-mono font-bold" style={{color:m.กำไร>=0?'#16A34A':'#DC2626'}}>฿{formatMoney(m.กำไร)}</span></td>
+                  <td>{m.รายรับ>0?<span className={`badge ${m.กำไร>=0?'badge-green':'badge-red'}`}>{((m.กำไร/m.รายรับ)*100).toFixed(1)}%</span>:'-'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SettingsPage({ onDisconnect }) {
+  const [showSQL, setShowSQL] = useState(false);
+  const saved = JSON.parse(localStorage.getItem(SUPABASE_CONFIG_KEY)||'{}');
+  return (
+    <div style={{maxWidth:600}}>
+      <div className="card mb-4">
+        <div className="card-header"><span className="card-title">🔌 การเชื่อมต่อ Supabase</span></div>
+        <div className="card-body">
+          <div className="alert alert-success">✅ เชื่อมต่อสำเร็จ</div>
+          <div className="form-group mb-4"><label className="form-label">Project URL</label><div className="form-input" style={{background:'var(--slate-50)',color:'var(--slate-500)',fontSize:12}}>{saved.url||'-'}</div></div>
+          <button className="btn btn-danger" onClick={()=>{ if(confirm('ตัดการเชื่อมต่อ Supabase?')){ localStorage.removeItem(SUPABASE_CONFIG_KEY); onDisconnect(); } }}>🔌 ตัดการเชื่อมต่อ</button>
+        </div>
+      </div>
+      <div className="card">
+        <div className="card-header"><span className="card-title">🗄️ SQL Script สร้าง Tables</span></div>
+        <div className="card-body">
+          <p style={{fontSize:13,color:'var(--slate-500)',marginBottom:12}}>ถ้ายังไม่ได้สร้าง tables ให้รัน script นี้ใน Supabase SQL Editor</p>
+          <button className="btn btn-ghost" onClick={()=>setShowSQL(!showSQL)}>{showSQL?'▲ ซ่อน':'▼ ดู'} SQL Script</button>
+          {showSQL && <pre style={{marginTop:12,background:'var(--slate-900)',color:'#A3E635',padding:16,borderRadius:8,fontSize:10.5,overflowX:'auto',lineHeight:1.7}}>{SQL_SETUP}</pre>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===================== MAIN APP =====================
+const PAGES = [
+  { id:'dashboard', label:'Dashboard', icon:'📊', section:'หลัก' },
+  { id:'customers', label:'ลูกค้า', icon:'👤', section:'หลัก' },
+  { id:'jobs', label:'ใบงาน', icon:'🔧', section:'หลัก' },
+  { id:'expenses', label:'รายรับ-รายจ่าย', icon:'💳', section:'บัญชี' },
+  { id:'report', label:'รายงาน', icon:'📈', section:'บัญชี' },
+  { id:'settings', label:'ตั้งค่า', icon:'⚙️', section:'ระบบ' },
+];
+
+function App() {
+  const [connected, setConnected] = useState(false);
+  const [page, setPage] = useState('dashboard');
+  const [loading, setLoading] = useState(false);
+  const [customers, setCustomers] = useState([]);
+  const [jobs, setJobs] = useState([]);
+  const [expenses, setExpenses] = useState([]);
+  const [otherIncome, setOtherIncome] = useState([]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem(SUPABASE_CONFIG_KEY);
+    if (saved) {
+      try {
+        const { url, key } = JSON.parse(saved);
+        if (url && key) { initSupabase(url, key); setConnected(true); }
+      } catch {}
+    }
+  }, []);
+
+  const loadData = useCallback(async () => {
+    if (!supabaseClient) return;
+    setLoading(true);
+    try {
+      const [c,j,e,o] = await Promise.all([db.getCustomers(),db.getJobs(),db.getExpenses(),db.getOtherIncome()]);
+      setCustomers(c); setJobs(j); setExpenses(e); setOtherIncome(o);
+    } catch(err) { console.error(err); }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { if (connected) loadData(); }, [connected, loadData]);
+
+  if (!connected) return <ConfigScreen onConnect={()=>setConnected(true)} />;
+
+  const pageTitle = PAGES.find(p=>p.id===page)?.label || '';
+  const sections = [...new Set(PAGES.map(p=>p.section))];
+
+  return (
+    <div id="root" style={{display:'flex',height:'100vh',overflow:'hidden'}}>
+      <aside className="sidebar">
+        <div className="sidebar-logo">
+          <img src={SHOP_LOGO} className="logo-img" onError={e=>e.target.style.display='none'} />
+          <div className="logo-title">68 PERFORMANCE</div>
+          <div className="logo-sub">Shop Management</div>
+        </div>
+        <nav className="sidebar-nav">
+          {sections.map(section => (
+            <div key={section}>
+              <div className="nav-section">{section}</div>
+              {PAGES.filter(p=>p.section===section).map(p=>(
+                <button key={p.id} className={`nav-item ${page===p.id?'active':''}`} onClick={()=>setPage(p.id)}>
+                  <span className="icon">{p.icon}</span>{p.label}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+        <div className="sidebar-bottom">
+          <div className="db-status">
+            <div className="db-dot connected" />
+            <span className="db-label">Supabase Connected</span>
+          </div>
+        </div>
+      </aside>
+
+      <div className="main">
+        <div className="topbar">
+          <span className="page-title">{pageTitle}</span>
+          <div className="topbar-actions">
+            <button className="btn btn-ghost btn-sm" onClick={loadData} disabled={loading}>
+              {loading ? '⏳' : '🔄'} รีเฟรช
+            </button>
+          </div>
+        </div>
+        <div className="content">
+          {loading && page==='dashboard' ? (
+            <div className="loading"><div className="spinner" />กำลังโหลดข้อมูล...</div>
+          ) : page==='dashboard' ? (
+            <DashboardPage jobs={jobs} expenses={expenses} otherIncome={otherIncome} customers={customers} />
+          ) : page==='customers' ? (
+            <CustomersPage customers={customers} onRefresh={loadData} />
+          ) : page==='jobs' ? (
+            <JobsPage jobs={jobs} customers={customers} onRefresh={loadData} />
+          ) : page==='expenses' ? (
+            <ExpensesPage expenses={expenses} otherIncome={otherIncome} onRefresh={loadData} />
+          ) : page==='report' ? (
+            <ReportPage jobs={jobs} expenses={expenses} otherIncome={otherIncome} />
+          ) : page==='settings' ? (
+            <SettingsPage onDisconnect={()=>{setConnected(false);supabaseClient=null;}} />
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
