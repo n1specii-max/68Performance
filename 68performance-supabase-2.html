@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>68 Performance</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;500;600;700&family=DM+Mono&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+--red:#E8341C;--red-dark:#C42A14;--red-light:#FFF1EF;
+--s50:#F8FAFC;--s100:#F1F5F9;--s200:#E2E8F0;--s300:#CBD5E1;
+--s400:#94A3B8;--s500:#64748B;--s600:#475569;--s700:#334155;
+--s800:#1E293B;--s900:#0F172A;
+--font:'DM Sans',sans-serif;--mono:'DM Mono',monospace;--display:'Bebas Neue',sans-serif;
+--r:10px;--rs:6px;--shadow:0 1px 3px rgba(0,0,0,.08);--shadow-md:0 4px 12px rgba(0,0,0,.1);
+}
+html,body{height:100%;font-family:var(--font);background:var(--s100);color:var(--s800)}
+/* Layout */
+#app{display:flex;height:100vh;overflow:hidden}
+.sidebar{width:220px;min-width:220px;background:var(--s900);display:flex;flex-direction:column;height:100vh;overflow-y:auto}
+.sidebar-logo{padding:20px 16px 12px;border-bottom:1px solid rgba(255,255,255,.07)}
+.logo-img{width:48px;height:48px;border-radius:8px;object-fit:cover}
+.logo-title{font-family:var(--display);font-size:22px;color:#fff;letter-spacing:1px;margin-top:8px;line-height:1}
+.logo-sub{font-size:10px;color:var(--s400);letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+.sidebar-nav{flex:1;padding:12px 8px}
+.nav-section{font-size:9px;color:var(--s500);letter-spacing:2px;text-transform:uppercase;padding:16px 8px 6px}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:var(--rs);color:var(--s400);font-size:13.5px;font-weight:500;cursor:pointer;transition:all .15s;margin-bottom:2px;border:none;background:none;width:100%;text-align:left;font-family:var(--font)}
+.nav-item:hover{background:rgba(255,255,255,.06);color:#fff}
+.nav-item.active{background:var(--red);color:#fff}
+.nav-icon{font-size:16px;width:20px;text-align:center}
+.sidebar-bottom{padding:12px 8px;border-top:1px solid rgba(255,255,255,.07)}
+.db-status{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:var(--rs);background:rgba(255,255,255,.04)}
+.db-dot{width:7px;height:7px;border-radius:50%;background:#22C55E;box-shadow:0 0 6px #22C55E}
+.db-label{font-size:11px;color:var(--s400)}
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.topbar{background:#fff;border-bottom:1px solid var(--s200);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.page-title{font-size:17px;font-weight:600;color:var(--s800)}
+.content{flex:1;overflow-y:auto;padding:24px}
+/* Cards */
+.card{background:#fff;border-radius:var(--r);border:1px solid var(--s200);box-shadow:var(--shadow)}
+.card-header{padding:16px 20px;border-bottom:1px solid var(--s100);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:14px;font-weight:600;color:var(--s700)}
+.card-body{padding:20px}
+/* Stats */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.stat-card{background:#fff;border-radius:var(--r);border:1px solid var(--s200);padding:16px 20px;box-shadow:var(--shadow)}
+.stat-card.accent{background:var(--red);border-color:var(--red-dark)}
+.stat-label{font-size:11px;color:var(--s400);text-transform:uppercase;letter-spacing:1px;font-weight:600}
+.stat-card.accent .stat-label{color:rgba(255,255,255,.7)}
+.stat-value{font-family:var(--display);font-size:28px;color:var(--s800);margin-top:4px;line-height:1}
+.stat-card.accent .stat-value{color:#fff}
+.stat-sub{font-size:12px;color:var(--s400);margin-top:4px}
+.stat-card.accent .stat-sub{color:rgba(255,255,255,.7)}
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:var(--rs);font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .15s;font-family:var(--font)}
+.btn-primary{background:var(--red);color:#fff}
+.btn-primary:hover{background:var(--red-dark)}
+.btn-secondary{background:var(--s100);color:var(--s700);border:1px solid var(--s200)}
+.btn-ghost{background:none;color:var(--s500);border:1px solid var(--s200)}
+.btn-ghost:hover{background:var(--s50)}
+.btn-danger{background:#FEE2E2;color:#DC2626;border:1px solid #FECACA}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-icon{padding:7px}
+/* Table */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+thead th{text-align:left;padding:10px 14px;font-size:11px;font-weight:600;color:var(--s500);text-transform:uppercase;letter-spacing:.8px;border-bottom:2px solid var(--s100);background:var(--s50)}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--s100);vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--s50)}
+/* Badge */
+.badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-green{background:#DCFCE7;color:#16A34A}
+.badge-yellow{background:#FEF9C3;color:#CA8A04}
+.badge-red{background:#FEE2E2;color:#DC2626}
+.badge-blue{background:#DBEAFE;color:#2563EB}
+.badge-gray{background:var(--s100);color:var(--s600)}
+/* Form */
+.form-grid{display:grid;gap:14px}
+.form-grid-2{grid-template-columns:1fr 1fr}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-label{font-size:12px;font-weight:600;color:var(--s600)}
+.form-input,.form-select,.form-textarea{padding:8px 12px;border:1.5px solid var(--s200);border-radius:var(--rs);font-size:13.5px;font-family:var(--font);color:var(--s800);background:#fff;transition:border-color .15s;outline:none;width:100%}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(232,52,28,.1)}
+.form-textarea{resize:vertical;min-height:70px}
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;backdrop-filter:blur(2px)}
+.modal{background:#fff;border-radius:14px;box-shadow:0 8px 24px rgba(0,0,0,.12);width:100%;max-width:640px;max-height:90vh;overflow-y:auto}
+.modal-header{padding:20px 24px 16px;border-bottom:1px solid var(--s100);display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-size:17px;font-weight:700;color:var(--s800)}
+.modal-body{padding:20px 24px}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--s100);display:flex;gap:10px;justify-content:flex-end}
+/* Config */
+.config-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:40px;background:var(--s50)}
+.config-card{background:#fff;border-radius:16px;padding:40px;max-width:480px;width:100%;box-shadow:0 8px 24px rgba(0,0,0,.12);border:1px solid var(--s200)}
+.config-logo{font-family:var(--display);font-size:36px;color:var(--red);letter-spacing:2px;text-align:center;margin-bottom:6px}
+.config-sub{text-align:center;color:var(--s500);font-size:13px;margin-bottom:30px}
+/* Empty */
+.empty-state{text-align:center;padding:60px 20px}
+.empty-icon{font-size:48px;margin-bottom:12px}
+.empty-title{font-size:16px;font-weight:600;color:var(--s700);margin-bottom:6px}
+/* Loading */
+.loading{display:flex;align-items:center;justify-content:center;padding:60px;color:var(--s400);font-size:14px;gap:10px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:20px;height:20px;border:2px solid var(--s200);border-top-color:var(--red);border-radius:50%;animation:spin .7s linear infinite}
+/* Tags */
+.tag{display:inline-flex;align-items:center;padding:2px 8px;background:var(--s100);border-radius:4px;font-size:11px;color:var(--s500);font-family:var(--mono)}
+/* Tabs */
+.tabs{display:flex;gap:2px;background:var(--s100);padding:3px;border-radius:8px}
+.tab{padding:6px 14px;border-radius:6px;font-size:13px;font-weight:500;cursor:pointer;color:var(--s500);border:none;background:none;font-family:var(--font);transition:all .15s}
+.tab.active{background:#fff;color:var(--s800);box-shadow:var(--shadow);font-weight:600}
+.divider{height:1px;background:var(--s100);margin:16px 0}
+/* Helpers */
+.flex{display:flex}.items-center{align-items:center}.gap-2{gap:8px}.gap-3{gap:12px}
+.ml-auto{margin-left:auto}.mt-4{margin-top:16px}.mb-4{margin-bottom:16px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.font-bold{font-weight:700}.text-sm{font-size:12px}.w-full{width:100%}
+.text-red{color:var(--red)}.text-green{color:#16A34A}.text-muted{color:var(--s400)}
+.text-mono{font-family:var(--mono)}
+.alert{padding:12px 16px;border-radius:var(--rs);font-size:13px;margin-bottom:16px}
+.alert-warning{background:#FFFBEB;border:1px solid #FDE68A;color:#92400E}
+.alert-success{background:#F0FDF4;border:1px solid #BBF7D0;color:#166534}
+pre.sql{background:var(--s900);color:#A3E635;padding:16px;border-radius:8px;font-size:10.5px;overflow-x:auto;line-height:1.7;margin-top:10px}
+.color-dot{width:12px;height:12px;border-radius:50%;display:inline-block;border:1px solid rgba(0,0,0,.1)}
+.photo-thumb{width:32px;height:32px;border-radius:6px;object-fit:cover}
+/* Job items */
+.items-table{width:100%;border-collapse:collapse}
+.items-table th{text-align:left;font-size:11px;color:var(--s500);font-weight:600;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid var(--s200)}
+.items-table td{padding:6px 8px;border-bottom:1px solid var(--s100)}
+.totals-row{display:flex;justify-content:flex-end;gap:24px;padding:12px 0 0;border-top:2px solid var(--s200);margin-top:8px}
+.total-item .t-label{font-size:12px;color:var(--s500)}
+.total-item .t-value{font-size:15px;font-weight:700;font-family:var(--mono);text-align:right}
+.total-item.grand .t-value{color:var(--red);font-size:18px}
+input[type=color]{width:36px;height:32px;padding:2px;border:1.5px solid var(--s200);border-radius:var(--rs);cursor:pointer}
+.search-wrap{position:relative;flex:1}
+.search-wrap input{padding-left:34px}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--s400);pointer-events:none}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+// ============ CONFIG ============
+const CFG_KEY = '68perf_sb';
+const LOGO = 'https://img1.pic.in.th/images/1000464399.jpg';
+const SUPPLIERS = ['LiquiMoly','อัลฟ่าสแปร์พาท','Boat โซ่สเตอร์','WURTH','ยาง CST','TD แบตเตอรี่','Shopee','ส.อะไหล่','Triumph เชียงราย','Honda Bigwing พิษณุโลก','วิริชัย สระบุรี','เครื่องมือ','อื่นๆ'];
+const STATUSES = [{v:'pending',l:'รอดำเนินการ',b:'badge-yellow'},{v:'in_progress',l:'กำลังซ่อม',b:'badge-blue'},{v:'done',l:'เสร็จแล้ว',b:'badge-green'},{v:'waiting_parts',l:'รอชิ้นส่วน',b:'badge-red'}];
+const MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+const SQL = `CREATE TABLE IF NOT EXISTS customers (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  name text NOT NULL, phone text, bike_brand text,
+  bike_model text, bike_year text, license_plate text,
+  bike_color text DEFAULT '#888888', bike_photo text,
+  notes text, created_at timestamptz DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS jobs (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  job_number text NOT NULL, customer_id uuid, customer_name text,
+  bike_info text, status text DEFAULT 'pending', items jsonb DEFAULT '[]',
+  labor_total numeric DEFAULT 0, parts_total numeric DEFAULT 0,
+  grand_total numeric DEFAULT 0, run_date date, completion_date date,
+  notes text, created_at timestamptz DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS expenses (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  date date NOT NULL, supplier text NOT NULL, description text,
+  amount numeric NOT NULL, notes text, created_at timestamptz DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS other_income (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  date date NOT NULL, description text NOT NULL,
+  amount numeric NOT NULL, notes text, created_at timestamptz DEFAULT now()
+);`;
+
+let sb = null;
+const fmt = n => Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+const today = () => new Date().toISOString().split('T')[0];
+const el = (tag,attrs={},children=[]) => {
+  const e = document.createElement(tag);
+  Object.entries(attrs).forEach(([k,v])=>{
+    if(k==='class') e.className=v;
+    else if(k==='style'&&typeof v==='object') Object.assign(e.style,v);
+    else if(k.startsWith('on')) e.addEventListener(k.slice(2).toLowerCase(),v);
+    else e.setAttribute(k,v);
+  });
+  children.forEach(c=>{
+    if(c==null||c===false||c===undefined) return;
+    e.appendChild(typeof c==='string'?document.createTextNode(c):c);
+  });
+  return e;
+};
+const h = el;
+
+// ============ DB ============
+const db = {
+  async get(table) {
+    const {data,error} = await sb.from(table).select('*').order('created_at',{ascending:false});
+    if(error) throw error; return data||[];
+  },
+  async save(table,obj) {
+    if(obj.id) {
+      const {data,error} = await sb.from(table).update(obj).eq('id',obj.id).select().single();
+      if(error) throw error; return data;
+    } else {
+      const {data,error} = await sb.from(table).insert(obj).select().single();
+      if(error) throw error; return data;
+    }
+  },
+  async del(table,id) {
+    const {error} = await sb.from(table).delete().eq('id',id);
+    if(error) throw error;
+  },
+  async nextJob() {
+    const {data} = await sb.from('jobs').select('job_number').order('job_number',{ascending:false}).limit(1);
+    if(!data||!data.length) return '0001';
+    return String(parseInt(data[0].job_number||'0')+1).padStart(4,'0');
+  }
+};
+
+// ============ STATE ============
+let state = {
+  page: 'dashboard', customers:[], jobs:[], expenses:[], otherIncome:[],
+  loading:false, modal:null
+};
+
+// ============ RENDER ============
+function render() {
+  const app = document.getElementById('app');
+  app.innerHTML='';
+  app.appendChild(buildApp());
+}
+
+function buildApp() {
+  const nav = buildSidebar();
+  const main = h('div',{class:'main'},[buildTopbar(), buildContent()]);
+  return h('div',{id:'layout',style:{display:'flex',height:'100vh',overflow:'hidden'}},[nav,main]);
+}
+
+function buildSidebar() {
+  const pages = [
+    {id:'dashboard',icon:'📊',label:'Dashboard',sec:'หลัก'},
+    {id:'customers',icon:'👤',label:'ลูกค้า',sec:'หลัก'},
+    {id:'jobs',icon:'🔧',label:'ใบงาน',sec:'หลัก'},
+    {id:'expenses',icon:'💳',label:'รายรับ-รายจ่าย',sec:'บัญชี'},
+    {id:'report',icon:'📈',label:'รายงาน',sec:'บัญชี'},
+    {id:'settings',icon:'⚙️',label:'ตั้งค่า',sec:'ระบบ'},
+  ];
+  const secs = [...new Set(pages.map(p=>p.sec))];
+  const navItems = secs.flatMap(sec=>[
+    h('div',{class:'nav-section'},[sec]),
+    ...pages.filter(p=>p.sec===sec).map(p=>
+      h('button',{class:`nav-item${state.page===p.id?' active':''}`,onClick:()=>{state.page=p.id;render();}},[
+        h('span',{class:'nav-icon'},[p.icon]), p.label
+      ])
+    )
+  ]);
+  return h('aside',{class:'sidebar'},[
+    h('div',{class:'sidebar-logo'},[
+      h('img',{src:LOGO,class:'logo-img',onerror:"this.style.display='none'"}),
+      h('div',{class:'logo-title'},['68 PERFORMANCE']),
+      h('div',{class:'logo-sub'},['Shop Management']),
+    ]),
+    h('nav',{class:'sidebar-nav'},navItems),
+    h('div',{class:'sidebar-bottom'},[
+      h('div',{class:'db-status'},[
+        h('div',{class:'db-dot'}),
+        h('span',{class:'db-label'},['Supabase Connected'])
+      ])
+    ])
+  ]);
+}
+
+function buildTopbar() {
+  const titles = {dashboard:'Dashboard',customers:'ลูกค้า',jobs:'ใบงาน',expenses:'รายรับ-รายจ่าย',report:'รายงาน',settings:'ตั้งค่า'};
+  return h('div',{class:'topbar'},[
+    h('span',{class:'page-title'},[titles[state.page]||'']),
+    h('button',{class:'btn btn-ghost btn-sm',onClick:loadData},[state.loading?'⏳':'🔄', ' รีเฟรช'])
+  ]);
+}
+
+function buildContent() {
+  const wrap = h('div',{class:'content'});
+  if(state.loading) { wrap.appendChild(h('div',{class:'loading'},[h('div',{class:'spinner'}), 'กำลังโหลด...'])); return wrap; }
+  if(state.page==='dashboard') wrap.appendChild(buildDashboard());
+  else if(state.page==='customers') wrap.appendChild(buildCustomers());
+  else if(state.page==='jobs') wrap.appendChild(buildJobs());
+  else if(state.page==='expenses') wrap.appendChild(buildExpenses());
+  else if(state.page==='report') wrap.appendChild(buildReport());
+  else if(state.page==='settings') wrap.appendChild(buildSettings());
+  if(state.modal) wrap.appendChild(state.modal);
+  return wrap;
+}
+
+// ============ DASHBOARD ============
+function buildDashboard() {
+  const now = new Date(); const m=now.getMonth(); const y=now.getFullYear();
+  const mJobs = state.jobs.filter(j=>{const d=new Date(j.created_at);return d.getMonth()===m&&d.getFullYear()===y;});
+  const mExp = state.expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===m&&d.getFullYear()===y;});
+  const mInc = state.otherIncome.filter(i=>{const d=new Date(i.date);return d.getMonth()===m&&d.getFullYear()===y;});
+  const jobInc = mJobs.reduce((s,j)=>s+(j.grand_total||0),0);
+  const othInc = mInc.reduce((s,i)=>s+(i.amount||0),0);
+  const totalInc = jobInc+othInc;
+  const totalExp = mExp.reduce((s,e)=>s+(e.amount||0),0);
+  const net = totalInc-totalExp;
+  const pending = state.jobs.filter(j=>j.status==='pending'||j.status==='in_progress');
+
+  const stats = h('div',{class:'stats-grid'},[
+    statCard('รายรับเดือนนี้',`฿${fmt(totalInc)}`,`${MONTHS[m]} ${y+543}`,'accent'),
+    statCard('รายจ่ายเดือนนี้',`฿${fmt(totalExp)}`,'รายจ่ายทั้งหมด',''),
+    statCard('กำไรสุทธิ',`฿${fmt(net)}`,net>=0?'กำไร':'ขาดทุน','',net>=0?'#16A34A':'#DC2626'),
+    statCard('ใบงานค้าง',pending.length,'รอ / กำลังซ่อม',''),
+  ]);
+
+  const pendingCard = h('div',{class:'card'},[
+    h('div',{class:'card-header'},[h('span',{class:'card-title'},[`🔧 ใบงานค้าง (${pending.length})`])]),
+    pending.length===0
+      ? h('div',{class:'empty-state',style:{padding:'30px'}},[h('div',{class:'empty-icon'},['✅']),h('div',{class:'empty-title'},['ไม่มีใบงานค้าง'])])
+      : h('div',{},pending.slice(0,8).map(j=>{
+          const st=STATUSES.find(s=>s.v===j.status);
+          return h('div',{style:{display:'flex',alignItems:'center',padding:'10px 16px',borderBottom:'1px solid var(--s100)',gap:10}},[
+            h('span',{class:'tag'},[`#${j.job_number}`]),
+            h('div',{style:{flex:1}},[
+              h('div',{style:{fontSize:'13px',fontWeight:600}},[j.customer_name]),
+              h('div',{style:{fontSize:'11px',color:'var(--s400)'}},[j.bike_info||''])
+            ]),
+            h('span',{class:`badge ${st?.b||'badge-gray'}`},[st?.l||''])
+          ]);
+        }))
+  ]);
+
+  // Simple bar chart using div widths
+  const last6 = Array.from({length:6},(_,i)=>{
+    const d=new Date(y,m-5+i,1); const mm=d.getMonth(); const yy=d.getFullYear();
+    const inc=state.jobs.filter(j=>{const dd=new Date(j.created_at);return dd.getMonth()===mm&&dd.getFullYear()===yy;}).reduce((s,j)=>s+(j.grand_total||0),0)
+              +state.otherIncome.filter(oi=>{const dd=new Date(oi.date);return dd.getMonth()===mm&&dd.getFullYear()===yy;}).reduce((s,oi)=>s+(oi.amount||0),0);
+    const exp=state.expenses.filter(e=>{const dd=new Date(e.date);return dd.getMonth()===mm&&dd.getFullYear()===yy;}).reduce((s,e)=>s+(e.amount||0),0);
+    return {name:MONTHS[mm],inc,exp};
+  });
+  const maxVal = Math.max(...last6.flatMap(d=>[d.inc,d.exp]),1);
+  const chartCard = h('div',{class:'card'},[
+    h('div',{class:'card-header'},[h('span',{class:'card-title'},['📊 รายรับ-รายจ่าย 6 เดือนล่าสุด'])]),
+    h('div',{class:'card-body'},[
+      h('div',{style:{display:'flex',alignItems:'flex-end',gap:8,height:160}},[
+        ...last6.map(d=>h('div',{style:{flex:1,display:'flex',flexDirection:'column',alignItems:'center',gap:2}},[
+          h('div',{style:{width:'100%',display:'flex',gap:2,alignItems:'flex-end',height:120}},[
+            h('div',{style:{flex:1,background:'var(--red)',borderRadius:'3px 3px 0 0',height:`${(d.inc/maxVal*100)}%`,minHeight:d.inc?2:0}}),
+            h('div',{style:{flex:1,background:'var(--s300)',borderRadius:'3px 3px 0 0',height:`${(d.exp/maxVal*100)}%`,minHeight:d.exp?2:0}}),
+          ]),
+          h('div',{style:{fontSize:10,color:'var(--s500)',marginTop:4}},[d.name])
+        ]))
+      ]),
+      h('div',{style:{display:'flex',gap:16,marginTop:8,fontSize:12,color:'var(--s500)'}},[
+        h('span',{},[h('span',{style:{display:'inline-block',width:10,height:10,background:'var(--red)',borderRadius:2,marginRight:4}}),  'รายรับ']),
+        h('span',{},[h('span',{style:{display:'inline-block',width:10,height:10,background:'var(--s300)',borderRadius:2,marginRight:4}}), 'รายจ่าย']),
+      ])
+    ])
+  ]);
+
+  return h('div',{},[stats, h('div',{class:'grid-2',style:{marginBottom:16}},[chartCard,pendingCard])]);
+}
+
+function statCard(label,value,sub,cls='',color='') {
+  return h('div',{class:`stat-card ${cls}`},[
+    h('div',{class:'stat-label'},[label]),
+    h('div',{class:'stat-value',style:color?{color}:{}},[value]),
+    h('div',{class:'stat-sub'},[sub]),
+  ]);
+}
+
+// ============ CUSTOMERS ============
+function buildCustomers() {
+  const searchInp = h('input',{class:'form-input',placeholder:'ค้นหา ชื่อ ยี่ห้อ ทะเบียน...',style:{paddingLeft:'34px'}});
+  let search = '';
+  searchInp.addEventListener('input',()=>{search=searchInp.value;updateTable();});
+
+  const tbody = h('tbody');
+  function updateTable() {
+    tbody.innerHTML='';
+    const filtered = state.customers.filter(c=>
+      c.name.toLowerCase().includes(search.toLowerCase())||
+      (c.bike_brand||'').toLowerCase().includes(search.toLowerCase())||
+      (c.license_plate||'').toLowerCase().includes(search.toLowerCase())
+    );
+    if(!filtered.length) {
+      const tr=h('tr',{},[h('td',{colspan:6},[h('div',{class:'empty-state'},[h('div',{class:'empty-icon'},['👤']),h('div',{class:'empty-title'},['ยังไม่มีลูกค้า'])])])]);
+      tbody.appendChild(tr); return;
+    }
+    filtered.forEach(c=>{
+      const tr=h('tr',{},[
+        h('td',{},[h('div',{class:'flex items-center gap-2'},[
+          ...(c.bike_photo?[h('img',{src:c.bike_photo,class:'photo-thumb',onerror:"this.style.display='none'"})]:[] ),
+          h('strong',{},[c.name])
+        ])]),
+        h('td',{},[h('span',{style:{fontSize:'13px'}},[[c.bike_brand,c.bike_model,c.bike_year].filter(Boolean).join(' ')||'-'])]),
+        h('td',{},[h('span',{class:'tag'},[c.license_plate||'-'])]),
+        h('td',{style:{color:'var(--s500)',fontSize:'13px'}},[c.phone||'-']),
+        h('td',{},[h('div',{class:'flex items-center gap-2'},[
+          h('span',{class:'color-dot',style:{background:c.bike_color||'#888'}}),
+          h('span',{style:{fontSize:'11px',color:'var(--s500)'}},[c.bike_color||'-'])
+        ])]),
+        h('td',{},[
+          h('div',{class:'flex gap-2'},[
+            h('button',{class:'btn btn-ghost btn-sm',onClick:()=>openCustomerModal(c)},['✏️']),
+            h('button',{class:'btn btn-danger btn-sm',onClick:async()=>{
+              if(!confirm(`ลบลูกค้า "${c.name}"?`)) return;
+              await db.del('customers',c.id); await loadData(); render();
+            }},['🗑️'])
+          ])
+        ])
+      ]);
+      tbody.appendChild(tr);
+    });
+  }
+
+  const table = h('div',{class:'card'},[
+    h('div',{class:'table-wrap'},[
+      h('table',{},[
+        h('thead',{},[h('tr',{},[h('th',{},['ลูกค้า']),h('th',{},['รถ']),h('th',{},['ทะเบียน']),h('th',{},['เบอร์โทร']),h('th',{},['สีรถ']),h('th',{})])]),
+        tbody
+      ])
+    ])
+  ]);
+
+  updateTable();
+
+  return h('div',{},[
+    h('div',{class:'flex items-center gap-3 mb-4'},[
+      h('div',{class:'search-wrap'},[
+        h('span',{class:'search-icon'},['🔍']),
+        searchInp
+      ]),
+      h('button',{class:'btn btn-primary',onClick:()=>openCustomerModal(null)},['+ เพิ่มลูกค้า'])
+    ]),
+    table
+  ]);
+}
+
+// ============ CUSTOMER MODAL ============
+function openCustomerModal(customer) {
+  const c = customer || {name:'',phone:'',bike_brand:'',bike_model:'',bike_year:'',license_plate:'',bike_color:'#E8341C',bike_photo:'',notes:''};
+  let photoData = c.bike_photo||'';
+  
+  const nameInp = inp(c.name,'ชื่อลูกค้า *');
+  const phoneInp = inp(c.phone||'','เบอร์โทร');
+  const brandInp = inp(c.bike_brand||'','ยี่ห้อรถ');
+  const modelInp = inp(c.bike_model||'','รุ่นรถ');
+  const yearInp = inp(c.bike_year||'','ปีรถ');
+  const plateInp = inp(c.license_plate||'','ทะเบียน');
+  const colorPicker = h('input',{type:'color',value:c.bike_color||'#E8341C'});
+  const colorText = h('input',{class:'form-input',style:{flex:1},value:c.bike_color||''});
+  colorPicker.addEventListener('change',()=>colorText.value=colorPicker.value);
+  colorText.addEventListener('input',()=>colorPicker.value=colorText.value);
+  const notesInp = h('textarea',{class:'form-textarea'},[ c.notes||'']);
+
+  const photoImg = h('div',{style:{width:64,height:64,border:'2px dashed var(--s300)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',overflow:'hidden',background:'var(--s50)',fontSize:24}},['📷']);
+  if(photoData) { photoImg.innerHTML=''; photoImg.appendChild(h('img',{src:photoData,style:{width:'100%',height:'100%',objectFit:'cover'}})); }
+  const fileInp = h('input',{type:'file',accept:'image/*',style:{display:'none'}});
+  fileInp.addEventListener('change',e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const r=new FileReader(); r.onload=x=>{photoData=x.target.result;photoImg.innerHTML='';photoImg.appendChild(h('img',{src:photoData,style:{width:'100%',height:'100%',objectFit:'cover'}}));};
+    r.readAsDataURL(f);
+  });
+  photoImg.addEventListener('click',()=>fileInp.click());
+
+  const saveBtn = h('button',{class:'btn btn-primary',onClick:async()=>{
+    if(!nameInp.querySelector('input').value) { alert('กรุณากรอกชื่อลูกค้า'); return; }
+    saveBtn.textContent='⏳ กำลังบันทึก...'; saveBtn.disabled=true;
+    try {
+      await db.save('customers',{...c,
+        name:nameInp.querySelector('input').value,
+        phone:phoneInp.querySelector('input').value,
+        bike_brand:brandInp.querySelector('input').value,
+        bike_model:modelInp.querySelector('input').value,
+        bike_year:yearInp.querySelector('input').value,
+        license_plate:plateInp.querySelector('input').value,
+        bike_color:colorText.value,
+        bike_photo:photoData,
+        notes:notesInp.value
+      });
+      closeModal(); await loadData(); render();
+    } catch(e){alert('บันทึกไม่ได้: '+e.message);}
+    saveBtn.textContent='💾 บันทึก'; saveBtn.disabled=false;
+  }},['💾 บันทึก']);
+
+  const modal = h('div',{class:'modal-overlay',onClick:e=>{if(e.target===modal){closeModal();render();} }},[
+    h('div',{class:'modal'},[
+      h('div',{class:'modal-header'},[
+        h('span',{class:'modal-title'},[c.id?'แก้ไขลูกค้า':'เพิ่มลูกค้าใหม่']),
+        h('button',{class:'btn btn-ghost btn-sm btn-icon',onClick:()=>{closeModal();render();}},['✕'])
+      ]),
+      h('div',{class:'modal-body'},[
+        h('div',{class:'flex items-center gap-3 mb-4'},[photoImg, fileInp, h('div',{},[h('div',{style:{fontSize:12,color:'var(--s500)'}},['รูปภาพรถ']),h('div',{style:{fontSize:11,color:'var(--s400)'}},['คลิกเพื่ออัปโหลด'])])]),
+        h('div',{class:'form-grid form-grid-2'},[nameInp,phoneInp,brandInp,modelInp,yearInp,plateInp,
+          h('div',{class:'form-group'},[h('label',{class:'form-label'},['สีรถ']),h('div',{class:'flex gap-2 items-center'},[colorPicker,colorText])])
+        ]),
+        h('div',{class:'form-group mt-4'},[h('label',{class:'form-label'},['หมายเหตุ']),notesInp])
+      ]),
+      h('div',{class:'modal-footer'},[
+        h('button',{class:'btn btn-secondary',onClick:()=>{closeModal();render();}},['ยกเลิก']),
+        saveBtn
+      ])
+    ])
+  ]);
+  state.modal=modal; render();
+}
+
+function inp(val,label,type='text') {
+  const i=h('input',{class:'form-input',type,value:val,placeholder:label});
+  return h('div',{class:'form-group'},[h('label',{class:'form-label'},[label]),i]);
+}
+
+// ============ JOBS ============
+function buildJobs() {
+  let search=''; let filterStatus='all';
+  const searchInp=h('input',{class:'form-input',placeholder:'ค้นหาใบงาน...',style:{paddingLeft:'34px'}});
+  searchInp.addEventListener('input',()=>{search=searchInp.value;updateTable();});
+
+  const tabs=h('div',{class:'tabs'},[
+    ...[{v:'all',l:'ทั้งหมด'},...STATUSES.map(s=>({v:s.v,l:s.l}))].map(({v,l})=>{
+      const btn=h('button',{class:`tab${filterStatus===v?' active':''}`,onClick:()=>{
+        filterStatus=v;
+        tabs.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+        btn.classList.add('active');
+        updateTable();
+      }},[l]);
+      return btn;
+    })
+  ]);
+
+  const tbody=h('tbody');
+  function updateTable(){
+    tbody.innerHTML='';
+    const filtered=state.jobs.filter(j=>{
+      const ms=j.customer_name?.toLowerCase().includes(search.toLowerCase())||j.job_number?.includes(search)||(j.bike_info||'').toLowerCase().includes(search.toLowerCase());
+      const mst=filterStatus==='all'||j.status===filterStatus;
+      return ms&&mst;
+    });
+    if(!filtered.length){tbody.appendChild(h('tr',{},[h('td',{colspan:7},[h('div',{class:'empty-state'},[h('div',{class:'empty-icon'},['🔧']),h('div',{class:'empty-title'},['ไม่มีใบงาน'])])])]));return;}
+    filtered.forEach(j=>{
+      const st=STATUSES.find(s=>s.v===j.status);
+      tbody.appendChild(h('tr',{},[
+        h('td',{},[h('span',{class:'tag'},[`#${j.job_number}`])]),
+        h('td',{},[h('strong',{},[j.customer_name||'-'])]),
+        h('td',{style:{fontSize:'12px',color:'var(--s500)'}},[j.bike_info||'-']),
+        h('td',{},[h('span',{class:`badge ${st?.b||'badge-gray'}`},[st?.l||''])]),
+        h('td',{style:{fontSize:'12px',color:'var(--s500)'}},[j.run_date||'-']),
+        h('td',{},[h('span',{class:'text-mono font-bold text-red'},[`฿${fmt(j.grand_total)}`])]),
+        h('td',{},[h('div',{class:'flex gap-2'},[
+          h('button',{class:'btn btn-ghost btn-sm',onClick:()=>openJobModal(j)},['✏️']),
+          h('button',{class:'btn btn-danger btn-sm',onClick:async()=>{
+            if(!confirm(`ลบใบงาน #${j.job_number}?`))return;
+            await db.del('jobs',j.id);await loadData();render();
+          }},['🗑️'])
+        ])])
+      ]));
+    });
+  }
+  updateTable();
+
+  return h('div',{},[
+    h('div',{class:'flex items-center gap-3 mb-4',style:{flexWrap:'wrap'}},[
+      h('div',{class:'search-wrap'},[h('span',{class:'search-icon'},['🔍']),searchInp]),
+      tabs,
+      h('button',{class:'btn btn-primary',onClick:()=>openJobModal(null)},['+ ใบงานใหม่'])
+    ]),
+    h('div',{class:'card'},[h('div',{class:'table-wrap'},[
+      h('table',{},[
+        h('thead',{},[h('tr',{},[h('th',{},['เลขที่']),h('th',{},['ลูกค้า']),h('th',{},['รถ']),h('th',{},['สถานะ']),h('th',{},['วันรับ']),h('th',{},['มูลค่า']),h('th')])]),
+        tbody
+      ])
+    ])])
+  ]);
+}
+
+// ============ JOB MODAL ============
+function openJobModal(job) {
+  let items = job ? JSON.parse(JSON.stringify(job.items||[])) : [{id:Date.now(),desc:'',type:'labor',qty:1,price:0}];
+  if(!items.length) items=[{id:Date.now(),desc:'',type:'labor',qty:1,price:0}];
+
+  const custSel = h('select',{class:'form-select'},[
+    h('option',{value:''},'-- เลือกลูกค้า --'),
+    ...state.customers.map(c=>h('option',{value:c.id},[`${c.name} (${c.bike_brand||''} ${c.bike_model||''})`]))
+  ]);
+  if(job?.customer_id) custSel.value=job.customer_id;
+  const custNameInp = h('input',{class:'form-input',value:job?.customer_name||'',placeholder:'หรือพิมพ์ชื่อโดยตรง'});
+  const bikeInp = h('input',{class:'form-input',value:job?.bike_info||'',placeholder:'Ducati Monster 796 กข1234'});
+  const statusSel = h('select',{class:'form-select'},[...STATUSES.map(s=>h('option',{value:s.v},[s.l]))]);
+  if(job?.status) statusSel.value=job.status;
+  const runInp = h('input',{class:'form-input',type:'date',value:job?.run_date||today()});
+  const doneInp = h('input',{class:'form-input',type:'date',value:job?.completion_date||''});
+  const notesInp = h('textarea',{class:'form-textarea',style:{minHeight:'50px'}},[job?.notes||'']);
+  const jobNumSpan = h('span',{class:'tag'},['...']);
+
+  custSel.addEventListener('change',()=>{
+    const c=state.customers.find(x=>x.id===custSel.value);
+    if(c){custNameInp.value=c.name;bikeInp.value=[c.bike_brand,c.bike_model,c.license_plate].filter(Boolean).join(' ');}
+  });
+
+  if(!job) db.nextJob().then(n=>{jobNumSpan.textContent='#'+n;});
+  else jobNumSpan.textContent='#'+job.job_number;
+
+  const itemsBody = h('tbody');
+  const laborTotal = h('span',{class:'text-mono font-bold'},['0.00']);
+  const partsTotal = h('span',{class:'text-mono font-bold'},['0.00']);
+  const grandTotal = h('span',{class:'text-mono font-bold text-red',style:{fontSize:'17px'}},['0.00']);
+
+  function recalc(){
+    const lt=items.filter(i=>i.type==='labor').reduce((s,i)=>s+(parseFloat(i.price||0)*parseFloat(i.qty||1)),0);
+    const pt=items.filter(i=>i.type==='parts').reduce((s,i)=>s+(parseFloat(i.price||0)*parseFloat(i.qty||1)),0);
+    laborTotal.textContent='฿'+fmt(lt);partsTotal.textContent='฿'+fmt(pt);grandTotal.textContent='฿'+fmt(lt+pt);
+  }
+
+  function renderItems(){
+    itemsBody.innerHTML='';
+    items.forEach((item,idx)=>{
+      const descInp=h('input',{class:'form-input',value:item.desc,placeholder:'รายละเอียด...',style:{fontSize:'12px'}});
+      descInp.addEventListener('input',()=>{items[idx].desc=descInp.value;});
+      const typeSel=h('select',{class:'form-select',style:{fontSize:'12px',padding:'5px 6px'}},[h('option',{value:'labor'},'แรงงาน'),h('option',{value:'parts'},'ชิ้นส่วน')]);
+      typeSel.value=item.type;typeSel.addEventListener('change',()=>{items[idx].type=typeSel.value;recalc();});
+      const qtyInp=h('input',{class:'form-input',type:'number',value:item.qty,style:{fontSize:'12px'},min:1});
+      qtyInp.addEventListener('input',()=>{items[idx].qty=qtyInp.value;recalc();});
+      const priceInp=h('input',{class:'form-input',type:'number',value:item.price,style:{fontSize:'12px'},min:0});
+      priceInp.addEventListener('input',()=>{items[idx].price=priceInp.value;recalc();});
+      const delBtn=h('button',{class:'btn btn-danger btn-sm btn-icon',onClick:()=>{items.splice(idx,1);renderItems();recalc();}},['✕']);
+      itemsBody.appendChild(h('tr',{},[h('td',[descInp]),h('td',[typeSel]),h('td',[qtyInp]),h('td',[priceInp]),h('td',[delBtn])]));
+    });
+    recalc();
+  }
+  renderItems();
+
+  const addBtn=h('button',{class:'btn btn-ghost btn-sm mt-4',onClick:()=>{items.push({id:Date.now(),desc:'',type:'labor',qty:1,price:0});renderItems();}},['+ เพิ่มรายการ']);
+
+  const saveBtn=h('button',{class:'btn btn-primary',onClick:async()=>{
+    if(!custNameInp.value){alert('กรุณาระบุชื่อลูกค้า');return;}
+    saveBtn.textContent='⏳';saveBtn.disabled=true;
+    const lt=items.filter(i=>i.type==='labor').reduce((s,i)=>s+(parseFloat(i.price||0)*parseFloat(i.qty||1)),0);
+    const pt=items.filter(i=>i.type==='parts').reduce((s,i)=>s+(parseFloat(i.price||0)*parseFloat(i.qty||1)),0);
+    try {
+      const jobNum = job?.job_number || (await db.nextJob());
+      await db.save('jobs',{...job,
+        job_number:jobNum,
+        customer_id:custSel.value||null,
+        customer_name:custNameInp.value,
+        bike_info:bikeInp.value,
+        status:statusSel.value,
+        items:items,
+        labor_total:lt,parts_total:pt,grand_total:lt+pt,
+        run_date:runInp.value||null,
+        completion_date:doneInp.value||null,
+        notes:notesInp.value
+      });
+      closeModal();await loadData();render();
+    }catch(e){alert('บันทึกไม่ได้: '+e.message);}
+    saveBtn.textContent='💾 บันทึก';saveBtn.disabled=false;
+  }},['💾 บันทึก']);
+
+  const modal=h('div',{class:'modal-overlay',onClick:e=>{if(e.target===modal){closeModal();render();}}},[
+    h('div',{class:'modal',style:{maxWidth:'720px'}},[
+      h('div',{class:'modal-header'},[
+        h('span',{class:'modal-title'},[job?`แก้ไขใบงาน `:'ใบงานใหม่ ',jobNumSpan]),
+        h('button',{class:'btn btn-ghost btn-sm btn-icon',onClick:()=>{closeModal();render();}},['✕'])
+      ]),
+      h('div',{class:'modal-body'},[
+        h('div',{class:'form-grid form-grid-2'},[
+          h('div',{class:'form-group'},[h('label',{class:'form-label'},['ลูกค้า']),custSel]),
+          h('div',{class:'form-group'},[h('label',{class:'form-label'},['ชื่อลูกค้า']),custNameInp]),
+          h('div',{class:'form-group'},[h('label',{class:'form-label'},['ข้อมูลรถ']),bikeInp]),
+          h('div',{class:'form-group'},[h('label',{class:'form-label'},['สถานะ']),statusSel]),
+          h('div',{class:'form-group'},[h('label',{class:'form-label'},['วันที่รับ']),runInp]),
+          h('div',{class:'form-group'},[h('label',{class:'form-label'},['วันที่ส่ง']),doneInp]),
+        ]),
+        h('div',{style:{fontWeight:700,fontSize:'14px',color:'var(--s700)',margin:'16px 0 8px'}},['รายการงาน']),
+        h('div',{style:{background:'var(--s50)',borderRadius:8,padding:'10px 12px',border:'1px solid var(--s200)'}},[
+          h('table',{style:{width:'100%',borderCollapse:'collapse'}},[
+            h('thead',{},[h('tr',{},[h('th',{style:{textAlign:'left',fontSize:'11px',color:'var(--s500)',fontWeight:600,paddingBottom:8}},['รายการ']),h('th',{style:{width:90,fontSize:'11px',color:'var(--s500)',fontWeight:600}},['ประเภท']),h('th',{style:{width:70,fontSize:'11px',color:'var(--s500)',fontWeight:600}},['จำนวน']),h('th',{style:{width:90,fontSize:'11px',color:'var(--s500)',fontWeight:600}},['ราคา']),h('th',{style:{width:36}})])]),
+            itemsBody
+          ]),
+          addBtn,
+          h('div',{class:'totals-row'},[
+            h('div',{class:'total-item'},[h('div',{class:'t-label'},['แรงงาน']),laborTotal]),
+            h('div',{class:'total-item'},[h('div',{class:'t-label'},['ชิ้นส่วน']),partsTotal]),
+            h('div',{class:'total-item grand'},[h('div',{class:'t-label'},['รวมทั้งหมด']),grandTotal]),
+          ])
+        ]),
+        h('div',{class:'form-group mt-4'},[h('label',{class:'form-label'},['หมายเหตุ']),notesInp])
+      ]),
+      h('div',{class:'modal-footer'},[
+        h('button',{class:'btn btn-secondary',onClick:()=>{closeModal();render();}},['ยกเลิก']),
+        saveBtn
+      ])
+    ])
+  ]);
+  state.modal=modal;render();
+}
+
+// ============ EXPENSES ============
+function buildExpenses() {
+  let tab='expense';
+  const now=new Date(); let monthF=now.getMonth(); let yearF=now.getFullYear();
+
+  const tabsEl=h('div',{class:'tabs'});
+  const contentEl=h('div',{class:'mt-4'});
+
+  function switchTab(t){
+    tab=t;
+    tabsEl.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+    tabsEl.querySelector(`[data-tab="${t}"]`).classList.add('active');
+    updateContent();
+  }
+
+  const expTab=h('button',{class:'tab active','data-tab':'expense',onClick:()=>switchTab('expense')},['💸 รายจ่าย']);
+  const incTab=h('button',{class:'tab','data-tab':'income',onClick:()=>switchTab('income')},['💰 รายรับอื่นๆ']);
+  tabsEl.append(expTab,incTab);
+
+  const monthSel=h('select',{class:'form-select',style:{width:80,padding:'6px 8px',fontSize:12}},MONTHS.map((m,i)=>h('option',{value:i},[m])));
+  monthSel.value=monthF; monthSel.addEventListener('change',()=>{monthF=+monthSel.value;updateContent();});
+  const yearSel=h('select',{class:'form-select',style:{width:75,padding:'6px 8px',fontSize:12}},[yearF-1,yearF,yearF+1].map(y=>h('option',{value:y},[y+543])));
+  yearSel.value=yearF; yearSel.addEventListener('change',()=>{yearF=+yearSel.value;updateContent();});
+
+  const addBtn=h('button',{class:'btn btn-primary',onClick:()=>openExpenseModal(null,tab)},['+ เพิ่ม']);
+
+  function updateContent(){
+    addBtn.textContent=tab==='expense'?'+ เพิ่มรายจ่าย':'+ เพิ่มรายรับ';
+    contentEl.innerHTML='';
+    if(tab==='expense'){
+      const rows=state.expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===monthF&&d.getFullYear()===yearF;});
+      const total=rows.reduce((s,e)=>s+e.amount,0);
+      contentEl.appendChild(h('div',{class:'stat-card mb-4',style:{marginBottom:16,padding:'12px 16px'}},[h('div',{class:'stat-label'},['รายจ่ายเดือนนี้']),h('div',{class:'stat-value',style:{fontSize:'24px'}},['฿'+fmt(total)])]));
+      const tbody=h('tbody');
+      if(!rows.length) tbody.appendChild(h('tr',{},[h('td',{colspan:5},[h('div',{class:'empty-state',style:{padding:'30px'}},[h('div',{class:'empty-icon'},['💸']),h('div',{class:'empty-title'},['ไม่มีรายจ่าย'])])])]));
+      rows.forEach(e=>tbody.appendChild(h('tr',{},[
+        h('td',{style:{fontSize:'12px',color:'var(--s500)'}},[e.date]),
+        h('td',{},[h('span',{class:'badge badge-gray'},[e.supplier])]),
+        h('td',{style:{fontSize:'13px'}},[e.description||'-']),
+        h('td',{},[h('span',{class:'text-mono font-bold',style:{color:'#DC2626'}},['฿'+fmt(e.amount)])]),
+        h('td',{},[h('div',{class:'flex gap-2'},[
+          h('button',{class:'btn btn-ghost btn-sm',onClick:()=>openExpenseModal(e,'expense')},['✏️']),
+          h('button',{class:'btn btn-danger btn-sm',onClick:async()=>{if(!confirm('ลบ?'))return;await db.del('expenses',e.id);await loadData();updateContent();}},['🗑️'])
+        ])])
+      ])));
+      contentEl.appendChild(h('div',{class:'card'},[h('div',{class:'table-wrap'},[h('table',{},[h('thead',{},[h('tr',{},[h('th',{},['วันที่']),h('th',{},['ผู้จัดจำหน่าย']),h('th',{},['รายละเอียด']),h('th',{},['จำนวนเงิน']),h('th')])]  ),tbody])])]));
+    } else {
+      const rows=state.otherIncome.filter(i=>{const d=new Date(i.date);return d.getMonth()===monthF&&d.getFullYear()===yearF;});
+      const total=rows.reduce((s,i)=>s+i.amount,0);
+      contentEl.appendChild(h('div',{class:'stat-card mb-4',style:{marginBottom:16,padding:'12px 16px'}},[h('div',{class:'stat-label'},['รายรับอื่นๆ เดือนนี้']),h('div',{class:'stat-value',style:{fontSize:'24px'}},['฿'+fmt(total)])]));
+      const tbody=h('tbody');
+      if(!rows.length) tbody.appendChild(h('tr',{},[h('td',{colspan:4},[h('div',{class:'empty-state',style:{padding:'30px'}},[h('div',{class:'empty-icon'},['💰']),h('div',{class:'empty-title'},['ไม่มีรายรับอื่น'])])])]));
+      rows.forEach(i=>tbody.appendChild(h('tr',{},[
+        h('td',{style:{fontSize:'12px',color:'var(--s500)'}},[i.date]),
+        h('td',{style:{fontSize:'13px',fontWeight:500}},[i.description]),
+        h('td',{},[h('span',{class:'text-mono font-bold text-green'},['฿'+fmt(i.amount)])]),
+        h('td',{},[h('div',{class:'flex gap-2'},[
+          h('button',{class:'btn btn-ghost btn-sm',onClick:()=>openExpenseModal(i,'income')},['✏️']),
+          h('button',{class:'btn btn-danger btn-sm',onClick:async()=>{if(!confirm('ลบ?'))return;await db.del('other_income',i.id);await loadData();updateContent();}},['🗑️'])
+        ])])
+      ])));
+      contentEl.appendChild(h('div',{class:'card'},[h('div',{class:'table-wrap'},[h('table',{},[h('thead',{},[h('tr',{},[h('th',{},['วันที่']),h('th',{},['รายละเอียด']),h('th',{},['จำนวนเงิน']),h('th')])]  ),tbody])])]));
+    }
+  }
+  updateContent();
+
+  return h('div',{},[
+    h('div',{class:'flex items-center gap-3 mb-4',style:{flexWrap:'wrap'}},[tabsEl,h('div',{class:'flex gap-2 ml-auto items-center'},[monthSel,yearSel,addBtn])]),
+    contentEl
+  ]);
+}
+
+function openExpenseModal(item, type) {
+  const isIncome = type==='income';
+  const e = item || {date:today(),supplier:SUPPLIERS[0],description:'',amount:'',notes:''};
+  const dateInp=h('input',{class:'form-input',type:'date',value:e.date});
+  const descInp=h('input',{class:'form-input',value:e.description||'',placeholder:isIncome?'รายได้จาก...':'รายละเอียด...'});
+  const amtInp=h('input',{class:'form-input',type:'number',value:e.amount,min:0,step:'0.01'});
+  const supSel=h('select',{class:'form-select'},[...SUPPLIERS.map(s=>h('option',{value:s},[s]))]);
+  if(!isIncome&&e.supplier) supSel.value=e.supplier;
+  const saveBtn=h('button',{class:'btn btn-primary',onClick:async()=>{
+    if(!amtInp.value||(isIncome&&!descInp.value)){alert('กรุณากรอกข้อมูลให้ครบ');return;}
+    saveBtn.textContent='⏳';saveBtn.disabled=true;
+    try{
+      if(isIncome) await db.save('other_income',{...e,date:dateInp.value,description:descInp.value,amount:parseFloat(amtInp.value)});
+      else await db.save('expenses',{...e,date:dateInp.value,supplier:supSel.value,description:descInp.value,amount:parseFloat(amtInp.value)});
+      closeModal();await loadData();render();
+    }catch(err){alert('บันทึกไม่ได้: '+err.message);}
+    saveBtn.textContent='💾 บันทึก';saveBtn.disabled=false;
+  }},['💾 บันทึก']);
+
+  const modal=h('div',{class:'modal-overlay',onClick:ev=>{if(ev.target===modal){closeModal();render();}}},[
+    h('div',{class:'modal',style:{maxWidth:'420px'}},[
+      h('div',{class:'modal-header'},[h('span',{class:'modal-title'},[item?(isIncome?'แก้ไขรายรับ':'แก้ไขรายจ่าย'):(isIncome?'เพิ่มรายรับอื่นๆ':'เพิ่มรายจ่าย')]),h('button',{class:'btn btn-ghost btn-sm btn-icon',onClick:()=>{closeModal();render();}},['✕'])]),
+      h('div',{class:'modal-body'},[
+        h('div',{class:'form-grid'},[
+          h('div',{class:'form-group'},[h('label',{class:'form-label'},['วันที่']),dateInp]),
+          ...(!isIncome?[h('div',{class:'form-group'},[h('label',{class:'form-label'},['ผู้จัดจำหน่าย']),supSel])]:[] ),
+          h('div',{class:'form-group'},[h('label',{class:'form-label'},['รายละเอียด']),descInp]),
+          h('div',{class:'form-group'},[h('label',{class:'form-label'},['จำนวนเงิน (บาท)']),amtInp]),
+        ])
+      ]),
+      h('div',{class:'modal-footer'},[h('button',{class:'btn btn-secondary',onClick:()=>{closeModal();render();}},['ยกเลิก']),saveBtn])
+    ])
+  ]);
+  state.modal=modal;render();
+}
+
+// ============ REPORT ============
+function buildReport() {
+  const now=new Date(); let year=now.getFullYear();
+  const yearSel=h('select',{class:'form-select',style:{width:90}},[year-1,year,year+1].map(y=>h('option',{value:y},[y+543])));
+  yearSel.value=year; yearSel.addEventListener('change',()=>{year=+yearSel.value;updateReport();});
+  const statsEl=h('div',{class:'stats-grid'});
+  const tableBody=h('tbody');
+
+  function updateReport(){
+    const monthly=Array.from({length:12},(_,m)=>{
+      const ji=state.jobs.filter(j=>{const d=new Date(j.created_at);return d.getMonth()===m&&d.getFullYear()===year;}).reduce((s,j)=>s+(j.grand_total||0),0);
+      const oi=state.otherIncome.filter(i=>{const d=new Date(i.date);return d.getMonth()===m&&d.getFullYear()===year;}).reduce((s,i)=>s+(i.amount||0),0);
+      const ex=state.expenses.filter(e=>{const d=new Date(e.date);return d.getMonth()===m&&d.getFullYear()===year;}).reduce((s,e)=>s+(e.amount||0),0);
+      return{name:MONTHS[m],inc:ji+oi,exp:ex,profit:ji+oi-ex};
+    });
+    const tot=monthly.reduce((s,m)=>({inc:s.inc+m.inc,exp:s.exp+m.exp,profit:s.profit+m.profit}),{inc:0,exp:0,profit:0});
+    statsEl.innerHTML='';
+    statsEl.append(
+      statCard('รายรับรวมปี','฿'+fmt(tot.inc),'','accent'),
+      statCard('รายจ่ายรวมปี','฿'+fmt(tot.exp),'',''),
+      statCard('กำไรสุทธิ','฿'+fmt(tot.profit),'','',(tot.profit>=0?'#16A34A':'#DC2626')),
+      statCard('อัตรากำไร',(tot.inc>0?((tot.profit/tot.inc)*100).toFixed(1):0)+'%','',''),
+    );
+    tableBody.innerHTML='';
+    monthly.forEach((m,i)=>{
+      tableBody.appendChild(h('tr',{},[
+        h('td',{style:{fontWeight:600}},[`${m.name} ${year+543}`]),
+        h('td',{},[h('span',{class:'text-mono'},['฿'+fmt(m.inc)])]),
+        h('td',{},[h('span',{class:'text-mono'},['฿'+fmt(m.exp)])]),
+        h('td',{},[h('span',{class:'text-mono font-bold',style:{color:m.profit>=0?'#16A34A':'#DC2626'}},['฿'+fmt(m.profit)])]),
+        h('td',{},[m.inc>0?h('span',{class:`badge ${m.profit>=0?'badge-green':'badge-red'}`},[(m.profit/m.inc*100).toFixed(1)+'%']):'-']),
+      ]));
+    });
+  }
+  updateReport();
+
+  return h('div',{},[
+    h('div',{class:'flex items-center gap-3 mb-4'},[h('span',{style:{fontWeight:600,color:'var(--s600)'}},['ปี']),yearSel]),
+    statsEl,
+    h('div',{class:'card mt-4'},[
+      h('div',{class:'card-header'},[h('span',{class:'card-title'},['📋 ตารางสรุปรายเดือน'])]),
+      h('div',{class:'table-wrap'},[h('table',{},[
+        h('thead',{},[h('tr',{},[h('th',{},['เดือน']),h('th',{},['รายรับ']),h('th',{},['รายจ่าย']),h('th',{},['กำไรสุทธิ']),h('th',{},['อัตรากำไร'])])]),
+        tableBody
+      ])])
+    ])
+  ]);
+}
+
+// ============ SETTINGS ============
+function buildSettings() {
+  const saved=JSON.parse(localStorage.getItem(CFG_KEY)||'{}');
+  let showSQL=false;
+  const sqlPre=h('pre',{class:'sql',style:{display:'none'}},[SQL]);
+  const toggleBtn=h('button',{class:'btn btn-ghost w-full',style:{marginTop:8},onClick:()=>{showSQL=!showSQL;sqlPre.style.display=showSQL?'block':'none';toggleBtn.textContent=(showSQL?'▲ ซ่อน':'▼ ดู')+' SQL Script';}},['▼ ดู SQL Script']);
+  return h('div',{style:{maxWidth:560}},[
+    h('div',{class:'card mb-4'},[
+      h('div',{class:'card-header'},[h('span',{class:'card-title'},['🔌 การเชื่อมต่อ Supabase'])]),
+      h('div',{class:'card-body'},[
+        h('div',{class:'alert alert-success'},['✅ เชื่อมต่อสำเร็จ']),
+        h('div',{class:'form-group mb-4'},[h('label',{class:'form-label'},['Project URL']),h('div',{class:'form-input',style:{background:'var(--s50)',color:'var(--s500)',fontSize:'12px'}},[saved.url||'-'])]),
+        h('button',{class:'btn btn-danger',onClick:()=>{if(confirm('ตัดการเชื่อมต่อ?')){localStorage.removeItem(CFG_KEY);location.reload();}}},['🔌 ตัดการเชื่อมต่อ'])
+      ])
+    ]),
+    h('div',{class:'card'},[
+      h('div',{class:'card-header'},[h('span',{class:'card-title'},['🗄️ SQL Script สร้าง Tables'])]),
+      h('div',{class:'card-body'},[
+        h('p',{style:{fontSize:'13px',color:'var(--s500)',marginBottom:'12px'}},['รัน script นี้ใน Supabase SQL Editor ถ้ายังไม่ได้สร้าง tables']),
+        toggleBtn, sqlPre
+      ])
+    ])
+  ]);
+}
+
+// ============ CONFIG SCREEN ============
+function buildConfigScreen() {
+  const urlInp=h('input',{class:'form-input',placeholder:'https://xxxx.supabase.co'});
+  const keyInp=h('input',{class:'form-input',type:'password',placeholder:'eyJhbGci...'});
+  const errDiv=h('div',{class:'alert alert-warning',style:{display:'none'}});
+  let showSQL=false;
+  const sqlPre=h('pre',{class:'sql',style:{display:'none'}},[SQL]);
+  const toggleBtn=h('button',{class:'btn btn-ghost w-full',style:{marginTop:8,fontSize:'12px'},onClick:()=>{showSQL=!showSQL;sqlPre.style.display=showSQL?'block':'none';}},['▼ ดู SQL Script สำหรับสร้าง Tables']);
+
+  const saved=JSON.parse(localStorage.getItem(CFG_KEY)||'{}');
+  if(saved.url) urlInp.value=saved.url;
+  if(saved.key) keyInp.value=saved.key;
+
+  const connectBtn=h('button',{class:'btn btn-primary w-full',onClick:async()=>{
+    const url=urlInp.value.trim(); const key=keyInp.value.trim();
+    if(!url||!key){errDiv.style.display='block';errDiv.textContent='กรุณากรอก URL และ API Key';return;}
+    connectBtn.textContent='⏳ กำลังเชื่อมต่อ...';connectBtn.disabled=true;
+    try{
+      sb=supabase.createClient(url,key);
+      const{error}=await sb.from('customers').select('id').limit(1);
+      if(error) throw error;
+      localStorage.setItem(CFG_KEY,JSON.stringify({url,key}));
+      await loadData(); render();
+    }catch(e){
+      errDiv.style.display='block';errDiv.textContent='เชื่อมต่อไม่ได้: '+(e.message||e);
+      connectBtn.textContent='🔌 เชื่อมต่อ Supabase';connectBtn.disabled=false;
+    }
+  }},['🔌 เชื่อมต่อ Supabase']);
+
+  const app=document.getElementById('app');
+  app.innerHTML='';
+  app.appendChild(h('div',{class:'config-screen'},[
+    h('div',{class:'config-card'},[
+      h('div',{style:{textAlign:'center',marginBottom:20}},[
+        h('img',{src:LOGO,style:{width:64,height:64,borderRadius:12,objectFit:'cover',marginBottom:12},onerror:"this.style.display='none'"}),
+        h('div',{class:'config-logo'},['68 PERFORMANCE']),
+        h('div',{class:'config-sub'},['Shop Management · เชื่อมต่อ Supabase'])
+      ]),
+      h('div',{class:'form-grid'},[
+        h('div',{class:'form-group'},[h('label',{class:'form-label'},['Supabase Project URL']),urlInp]),
+        h('div',{class:'form-group'},[h('label',{class:'form-label'},['Anon / Public API Key']),keyInp]),
+        errDiv, connectBtn
+      ]),
+      h('div',{class:'divider'}),
+      h('div',{style:{fontSize:'12px',color:'var(--s500)',lineHeight:1.8}},[
+        h('strong',{},['วิธีเริ่มใช้งาน:']),h('br'),
+        '1. สมัคร ',h('a',{href:'https://supabase.com',target:'_blank',style:{color:'var(--red)'}},['supabase.com']),' (ฟรี)',h('br'),
+        '2. สร้าง Project → Settings → API → copy URL + anon key',h('br'),
+        '3. รัน SQL script สร้าง tables ก่อนกด เชื่อมต่อ'
+      ]),
+      toggleBtn, sqlPre
+    ])
+  ]));
+}
+
+// ============ HELPERS ============
+function closeModal(){state.modal=null;}
+
+async function loadData(){
+  if(!sb) return;
+  state.loading=true;
+  try{
+    const[c,j,e,o]=await Promise.all([db.get('customers'),db.get('jobs'),db.get('expenses'),db.get('other_income')]);
+    state.customers=c;state.jobs=j;state.expenses=e;state.otherIncome=o;
+  }catch(e){console.error(e);}
+  state.loading=false;
+}
+
+// ============ INIT ============
+async function init(){
+  const saved=JSON.parse(localStorage.getItem(CFG_KEY)||'{}');
+  if(saved.url&&saved.key){
+    sb=supabase.createClient(saved.url,saved.key);
+    await loadData();
+    render();
+  } else {
+    buildConfigScreen();
+  }
+}
+init();
+</script>
+</body>
+</html>
